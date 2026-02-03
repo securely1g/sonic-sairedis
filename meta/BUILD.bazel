@@ -1,148 +1,156 @@
+load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@tar.bzl", "mutate", "tar")
+load("//bazel:common.bzl", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+
 package(default_visibility = ["//visibility:public"])
 
-load("@tar.bzl", "tar", "mutate")
-load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
-load("//:common.bzl", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_CFLAGS", "DBGFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON")
-
-AM_CFLAGS = []
 AM_CXXFLAGS = []
 
 cc_library(
-  name = "libsaimetadata",
-  srcs = [
-    "@sai//meta:saimetadata.c",
-    "@sai//meta:saimetadatautils.c",
-    "@sai//meta:saiserialize.c",
-    "@sai//meta:libsai.cpp",
-  ],
-  deps = [
-    "@sai//meta:header_lib",
-    "@sai//inc:header_lib",
-    "@sai//experimental:header_lib",
-  ],
-  cxxopts = CODE_COVERAGE_CPPFLAGS,
-  copts = DBGFLAGS + AM_CFLAGS + ["-ansi"] + CODE_COVERAGE_CFLAGS,
+    name = "libsaimetadata",
+    srcs = [
+        "@sai//meta:deps",
+        "@sai//meta:saimetadata.c",
+        "@sai//meta:saimetadatautils.c",
+        "@sai//meta:saiserialize.c",
+        "@sai//meta:libsai.cpp",
+    ],
+    copts = DBGFLAGS + ["-ansi"] + CODE_COVERAGE_CFLAGS + ["-fPIC"],
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    deps = [
+        "//:sai_headers",
+    ],
 )
 
 filegroup(
-  name = "all_headers",
-  srcs = glob(["*.h"]),
+    name = "all_headers",
+    srcs = glob(["*.h"]),
 )
 
 cc_library(
-  name = "libsaimeta",
-  srcs = [
-    "AttrKeyMap.cpp",
-    "Globals.cpp",
-    "Meta.cpp",
-    "MetaKeyHasher.cpp",
-    "Notification.cpp",
-    "NotificationFactory.cpp",
-    "NotificationFdbEvent.cpp",
-    "NotificationNatEvent.cpp",
-    "NotificationPortStateChange.cpp",
-    "NotificationQueuePfcDeadlock.cpp",
-    "NotificationSwitchAsicSdkHealthEvent.cpp",
-    "NotificationSwitchShutdownRequest.cpp",
-    "NotificationSwitchStateChange.cpp",
-    "NotificationBfdSessionStateChange.cpp",
-    "NotificationTwampSessionEvent.cpp",
-    "NotificationPortHostTxReadyEvent.cpp",
-    "NumberOidIndexGenerator.cpp",
-    "OidRefCounter.cpp",
-    "PerformanceIntervalTimer.cpp",
-    "PortRelatedSet.cpp",
-    "RedisSelectableChannel.cpp",
-    "SaiAttrWrapper.cpp",
-    "SaiAttributeList.cpp",
-    "SaiInterface.cpp",
-    "SaiObject.cpp",
-    "SaiObjectCollection.cpp",
-    "SaiSerialize.cpp",
-    "SelectableChannel.cpp",
-    "ZeroMQSelectableChannel.cpp",
-    # Headers from lib to break dependency cycles between meta and lib
-    "//lib:all_headers",
-  ],
-  hdrs = [
-    ":all_headers",
-  ],
-  includes = [
-    "../lib",
-    # Some headers in `sonic-swss` want to include these headers without the meta/ prefix.
-    # To allow that, we need to add `-isystem <execroot>/<sairedis path>/meta` to the CLI,
-    # and this is the way we accomplish that.
-    # The alternative would be to prefix every header with `meta` in their include statements.
-    # (e.g. `#include "sai_serialize.h"` becomes `#include "meta/sai_serialize.h"`)
-    "../meta",
-  ],
-  deps = [
-    "@bookworm//libhiredis-dev:libhiredis",
-    "@sonic_swss_common//:libswsscommon",
-    ":libsaimetadata",
-  ] + CODE_COVERAGE_LIBS,
-  cxxopts = CODE_COVERAGE_CPPFLAGS,
-  copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    name = "libsaimeta",
+    srcs = [
+        "AttrKeyMap.cpp",
+        "Globals.cpp",
+        "Meta.cpp",
+        "MetaKeyHasher.cpp",
+        "Notification.cpp",
+        "NotificationFactory.cpp",
+        "NotificationFdbEvent.cpp",
+        "NotificationNatEvent.cpp",
+        "NotificationPortStateChange.cpp",
+        "NotificationQueuePfcDeadlock.cpp",
+        "NotificationSwitchAsicSdkHealthEvent.cpp",
+        "NotificationSwitchShutdownRequest.cpp",
+        "NotificationSwitchStateChange.cpp",
+        "NotificationBfdSessionStateChange.cpp",
+        "NotificationTwampSessionEvent.cpp",
+        "NotificationPortHostTxReadyEvent.cpp",
+        "NumberOidIndexGenerator.cpp",
+        "OidRefCounter.cpp",
+        "PerformanceIntervalTimer.cpp",
+        "PortRelatedSet.cpp",
+        "RedisSelectableChannel.cpp",
+        "SaiAttrWrapper.cpp",
+        "SaiAttributeList.cpp",
+        "SaiInterface.cpp",
+        "SaiObject.cpp",
+        "SaiObjectCollection.cpp",
+        "SaiSerialize.cpp",
+        "SelectableChannel.cpp",
+        "ZeroMQSelectableChannel.cpp",
+        # Headers from lib to break dependency cycles between meta and lib
+        "//lib:all_headers",
+    ],
+    hdrs = [
+        ":all_headers",
+    ],
+    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    includes = [
+        "../lib",
+        # Some headers in `sonic-swss` want to include these headers without the meta/ prefix.
+        # To allow that, we need to add `-isystem <execroot>/<sairedis path>/meta` to the CLI,
+        # and this is the way we accomplish that.
+        # The alternative would be to prefix every header with `meta` in their include statements.
+        # (e.g. `#include "sai_serialize.h"` becomes `#include "meta/sai_serialize.h"`)
+        "../meta",
+    ],
+    deps = [
+        ":libsaimetadata",
+        "@bookworm//libhiredis-dev:libhiredis",
+        "@sonic_swss_common//:libswsscommon",
+    ] + CODE_COVERAGE_LIBS,
 )
 
 filegroup(
-  name = "deb_headers",
-  srcs = glob([
-    "sai*.h",
-    "Sai*.h",
-  ]),
+    name = "deb_headers",
+    srcs = glob([
+        "sai*.h",
+        "Sai*.h",
+    ]),
 )
 
-
+# TODO(bazel-ready): Turn in to cc_shared_library
 cc_binary(
-  name = "saimetadata",
-  deps = [
-    ":libsaimetadata",
-  ],
-  linkstatic = 1,
-  linkshared = 1,
+    name = "saimetadata",
+    linkshared = 1,
+    linkstatic = 1,
+    deps = [
+        ":libsaimetadata",
+    ],
 )
 
+# TODO(bazel-ready): Turn in to cc_shared_library
 cc_binary(
-  name = "saimeta",
-  deps = [
-    ":libsaimeta",
-  ],
-  linkstatic = 1,
-  linkshared = 1,
+    name = "saimeta",
+    linkshared = 1,
+    linkstatic = 1,
+    deps = [
+        ":libsaimeta",
+    ],
 )
 
 # Because we don't want to name all the headers one by one in the mtree,
 # we create a directory at the right path.
 copy_to_directory(
-  name = "deb_headers_directory",
-  out = "usr/include/sai",
-  srcs = [
-    ":deb_headers",
-    "@sai//meta:deb_headers",
-  ],
-  include_external_repositories = ["sai*"],
+    name = "deb_headers_directory",
+    srcs = [
+        ":deb_headers",
+        "@sai//meta:deb_headers",
+    ],
+    out = "usr/include/sai",
+    include_external_repositories = ["sai*"],
 )
 
 copy_to_directory(
-  name = "deb_libs_directory",
-  # TODO: parameterize based on target triple
-  out = "usr/lib/x86_64-linux-gnu",
-  srcs = [
-    ":saimetadata",
-    ":saimeta",
-  ],
+    name = "deb_libs_directory",
+    srcs = [
+        ":saimeta",
+        ":saimetadata",
+    ],
+    # TODO(bazel-ready): parameterize based on target triple
+    out = "usr/lib/x86_64-linux-gnu",
 )
 
+<<<<<<< HEAD
 
 # TODO(bazel-ready): We may need to also do the files in `debian/libsaimetadata-dev.links`, which create symlinks to .0:
 # /usr/lib/${DEB_HOST_MULTIARCH}/libsaimetadata.so.0 /usr/lib/${DEB_HOST_MULTIARCH}/libsaimetadata.so
 # /usr/lib/${DEB_HOST_MULTIARCH}/libsaimeta.so.0 /usr/lib/${DEB_HOST_MULTIARCH}/libsaimeta.so
 tar(
-  name = "libsaimetadata_dev_pkg",
-  srcs = [
-    ":deb_headers_directory",
-    ":deb_libs_directory",
-  ],
-  mutate = mutate(strip_prefix = package_name()),
+    name = "libsaimetadata_dev_pkg",
+    srcs = [
+        ":deb_headers_directory",
+        ":deb_libs_directory",
+    ],
+    mutate = mutate(strip_prefix = package_name()),
+)
+
+tar(
+    name = "libsaimetadata_pkg",
+    srcs = [
+        ":deb_libs_directory",
+    ],
+    mutate = mutate(strip_prefix = package_name()),
 )

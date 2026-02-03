@@ -1,0 +1,23 @@
+load("//bazel:common.bzl", "CFLAGS_ASAN", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+
+cc_library(
+    name = "libsaidump",
+    srcs = ["SaiDump.cpp"],
+    hdrs = ["SaiDump.h"],
+    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    deps = [
+        "//:sailib",
+        "//lib:libsairedis",
+        "//meta:libsaimeta",
+    ],
+)
+
+cc_binary(
+    name = "saidump",
+    srcs = ["main.cpp"],
+    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    visibility = ["//syncd:__subpackages__"],
+    deps = [":libsaidump"],
+)

@@ -1,0 +1,27 @@
+load("//bazel:common.bzl", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+
+AM_CXXFLAGS = [] # Note: Not needed because linker flags are set by Bazel
+
+cc_test(
+    name = "tests",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+    ]),
+    cxxopts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON,
+    data = glob([
+        "brcm/*.ini",
+        "mlnx/*.ini",
+        "nvda-bf/*.ini",
+    ]),
+    includes = [".."],  # We need this to inlude raw headers from syncd
+    deps = [
+        "//meta:saimeta",
+        "//syncd:libsyncd",
+        "//syncd:libsyncd_request_shutdown",
+        "//vslib:libsaivs",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "@sonic_swss_common//:libswsscommon",
+    ] + CODE_COVERAGE_LIBS,
+)

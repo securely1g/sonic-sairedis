@@ -1,33 +1,43 @@
 module(name = "sonic-sairedis")
 
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "bazel_lib", version = "3.1.1")
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "tar.bzl", version = "0.8.1")
-
-bazel_dep(name = "sonic-build-infra", version = "0.0.0")
+bazel_dep(name = "sonic-build-infra", version = "0.0.0", repo_name = "sonic_build_infra")
 local_path_override(
     module_name = "sonic-build-infra",
-    path = "../sonic-build-infra"
+    path = "../sonic-build-infra",
 )
 
-register_toolchains("@sonic-build-infra//toolchains/gcc:host_gcc_toolchain")
+register_toolchains("@sonic_build_infra//toolchains/gcc:host_gcc_toolchain")
 
 bazel_dep(name = "rules_distroless", version = "0.0.0")
 local_path_override(
     module_name = "rules_distroless",
-    path = "../rules_distroless"
+    path = "../rules_distroless",
+)
+
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "78c676fc63881529bf97bf9d45948d905a66833fbfa5318ea2cd7478cb98f399",
+    strip_prefix = "googletest-1.16.0",
+    urls = ["https://github.com/google/googletest/releases/download/v1.16.0/googletest-1.16.0.tar.gz"],
 )
 
 apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
-
 apt.sources_list(
     architectures = ["amd64"],
     components = ["main"],
-    suites = ["bookworm", "bookworm-updates"],
+    suites = [
+        "bookworm",
+        "bookworm-updates",
+    ],
     uris = ["https://snapshot.debian.org/archive/debian/20251001T023456Z"],
 )
-
 apt.sources_list(
     architectures = ["amd64"],
     components = ["main"],
@@ -43,13 +53,12 @@ local_path_override(
 
 bazel_dep(name = "sai", version = "0.0.0")
 local_path_override(
-  module_name = "sai",
-  path = "./SAI",
+    module_name = "sai",
+    path = "./SAI",
 )
 
 apt.install(
     dependency_set = "bookworm",
-    suites = ["bookworm", "bookworm-updates"],
     packages = [
         # For this repo
         "libhiredis-dev",
@@ -58,9 +67,17 @@ apt.install(
         "libboost-dev",
         "libboost-serialization-dev",
         "nlohmann-json3-dev",
-    ]
+        # For rpcserver
+        "libthrift-dev",
+        # For dashsai
+        "libprotobuf-dev",
+        "libgrpc-dev",
+        "libgrpc++-dev",
+    ],
+    suites = [
+        "bookworm",
+        "bookworm-updates",
+    ],
 )
-
 apt.lock(into = ":packages.lock")
-
 use_repo(apt, "bookworm")

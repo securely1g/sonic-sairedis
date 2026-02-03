@@ -1,0 +1,14 @@
+load("//bazel:common.bzl", "CFLAGS_ASAN", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+
+cc_binary(
+    name = "saisdkdump",
+    srcs = ["saisdkdump.cpp"],
+    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    visibility = ["//syncd:__subpackages__"],
+    deps = [
+        "//:sailib",
+        "//lib:libsairedis",
+        "//meta:libsaimeta",
+    ],
+)
