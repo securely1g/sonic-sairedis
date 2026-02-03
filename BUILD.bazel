@@ -1,31 +1,73 @@
+load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@bazel_lib//lib:run_binary.bzl", "run_binary")
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+# TODO(bazel-ready): Make tests pass
+# TODO(bazel-ready): Add automatic formatting with buildfier
+
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("@bazel_lib//lib:run_binary.bzl", "run_binary")
-load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
-load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
+cc_library(
+    name = "sai_headers",
+    deps = [
+        "@sai//experimental:header_lib",
+        "@sai//inc:header_lib",
+        "@sai//meta:header_lib",
+    ],
+)
+
+cc_library(
+    name = "sailib",
+    deps = [
+        ":sai_headers", # Every target that depends on SAI depends on headers in this repository
+    ] + select({
+        "@sonic_build_infra//:sai_empty": ["//vslib:libsaivs"],
+        "//conditions:default": ["@sonic_build_infra//:sai"],
+    }),
+)
+
+bool_flag(
+    name = "enable_dashsai",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "dashsai_enabled",
+    flag_values = {":enable_dashsai": "true"},
+)
+
+bool_flag(
+    name = "enable_rpcserver",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "rpcserver_enabled",
+    flag_values = {":enable_rpcserver": "true"},
+)
 
 copy_to_directory(
-  name = "swss_common_headers",
-  srcs = ["@sonic_swss_common//:hdrs"],
-  out = "swss",
-  root_paths = ["common"],
-  include_external_repositories = ["*"],
+    name = "swss_common_headers",
+    srcs = ["@sonic_swss_common//:hdrs"],
+    out = "swss",
+    include_external_repositories = ["*"],
+    root_paths = ["common"],
 )
 
 sh_binary(
-  name = "create_config",
-  srcs = [":create_config.bazel.sh"],
+    name = "create_config",
+    srcs = [":create_config.bazel.sh"],
 )
 
 run_binary(
-  name = "config",
-  tool = ":create_config",
-  args = ["$(execpath config.h)"],
-  outs = ["config.h"],
-  # This file bakes in the commits for sairedis and SAI,
-  # so it always must be stamped.
-  # It only invalidates a small number of downstream files, so we think it's acceptable.
-  stamp = 1,
+    name = "config",
+    outs = ["config.h"],
+    args = ["$(execpath config.h)"],
+    # This file bakes in the commits for sairedis and SAI,
+    # so it always must be stamped.
+    # It only invalidates a small number of downstream files, so we think it's acceptable.
+    stamp = 1,
+    tool = ":create_config",
 )
-

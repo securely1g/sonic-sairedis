@@ -1,0 +1,286 @@
+load("@rules_distroless//distroless:defs.bzl", "flatten")
+load("@tar.bzl", "mutate", "tar")
+load("//bazel:packaging.bzl", "mtree_from_lines")
+load("//bazel:common.bzl", "CFLAGS_ASAN", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS", "LDFLAGS_ASAN")
+
+filegroup(
+    name = "headers",
+    srcs = glob(["*.h"]),
+)
+
+libsyncd_srcs = [
+    "AsicOperation.cpp",
+    "AsicView.cpp",
+    "BestCandidateFinder.cpp",
+    "BreakConfig.cpp",
+    "BreakConfigParser.cpp",
+    "CommandLineOptions.cpp",
+    "CommandLineOptionsParser.cpp",
+    "ComparisonLogic.cpp",
+    "FlexCounter.cpp",
+    "FlexCounterManager.cpp",
+    "GlobalSwitchId.cpp",
+    "HardReiniter.cpp",
+    "MdioIpcServer.cpp",
+    "MetadataLogger.cpp",
+    "NotificationHandler.cpp",
+    "NotificationProcessor.cpp",
+    "NotificationQueue.cpp",
+    "PortMap.cpp",
+    "PortMapParser.cpp",
+    "PortStateChangeHandler.cpp",
+    "RedisClient.cpp",
+    "RedisNotificationProducer.cpp",
+    "RequestShutdownCommandLineOptions.cpp",
+    "SaiAttr.cpp",
+    "SaiDiscovery.cpp",
+    "SaiObj.cpp",
+    "SaiSwitch.cpp",
+    "SaiSwitchInterface.cpp",
+    "ServiceMethodTable.cpp",
+    "SingleReiniter.cpp",
+    "SwitchNotifications.cpp",
+    "Syncd.cpp",
+    "TimerWatchdog.cpp",
+    "VendorSai.cpp",
+    "VidManager.cpp",
+    "VirtualOidTranslator.cpp",
+    "WarmRestartTable.cpp",
+    "WatchdogScope.cpp",
+    "Workaround.cpp",
+    "ZeroMQNotificationProducer.cpp",
+    "syncd_main.cpp",
+    "//:config",
+]
+
+libsyncd_copts = select({
+    "@sonic_build_infra//:asan_enabled": ["-DASAN_ENABLED"],
+    "//conditions:default": [],
+}) + select({
+    "//:rpcserver_enabled": ["-DSAITHRIFT=yes"],
+    "//conditions:default": [],
+}) + select({
+    "@sonic_build_infra//:platform_broadcom": ["-DMDIO_ACCESS_USE_NPU"],
+    "//conditions:default": [],
+}) + DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS
+
+libsyncd_deps = [
+    "//:sailib",
+    "//vslib:libsaivs",
+    "//meta:libsaimeta",
+] + select({
+    # TODO(bazel-ready): build SAI/rpcserver, and possibly read it as a target.
+    # The main blocker is that the perl scripts in SAI/meta/rpc contain XS dependencies
+    # and rules_perl doesn't support it.
+    "//:rpcserver_enabled": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+libsyncd_cxxopts = CODE_COVERAGE_CPPFLAGS
+
+cc_library(
+    name = "libsyncd",
+    srcs = libsyncd_srcs,
+    hdrs = [":headers"],
+    copts = libsyncd_copts,
+    cxxopts = libsyncd_cxxopts,
+    includes = ["syncd"],
+    visibility = [
+        "//saiasiccmp:__subpackages__",
+        "//saidiscovery:__subpackages__",
+        "//saiplayer:__subpackages__",
+        "//syncd:__subpackages__",
+    ],
+    deps = libsyncd_deps,
+)
+
+syncd_ldflags = [
+    "-rdynamic",
+] + LDFLAGS_ASAN
+
+syncd_srcs = select({
+    "@sonic_build_infra//:asan_enabled": [
+        "Asan.cpp",
+    ],
+    "//conditions:default": [],
+}) + [
+    "main.cpp",
+]
+
+cc_binary(
+    name = "syncd",
+    srcs = syncd_srcs,
+    copts = select({
+        "//:rpcserver_enabled": ["-DSAITHRIFT=yes"],
+        "//conditions:default": [],
+    }) + CFLAGS_ASAN + DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    linkopts = syncd_ldflags,
+    deps = [
+        ":libsyncd",
+        "//lib:sairedis",
+        "//meta:saimeta",
+    ] + CODE_COVERAGE_LIBS,
+)
+
+cc_library(
+    name = "libsyncd_request_shutdown",
+    srcs = [
+        "RequestShutdown.cpp",
+        "RequestShutdownCommandLineOptions.cpp",
+        "RequestShutdownCommandLineOptionsParser.cpp",
+        ":headers",
+    ],
+    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    visibility = ["//syncd:__subpackages__"],
+    deps = [
+        "@sonic_swss_common//:libswsscommon",
+        "//lib:libsairedis",
+        "//meta:libsaimeta",
+    ],
+)
+
+cc_binary(
+    name = "syncd_request_shutdown",
+    srcs = ["syncd_request_shutdown.cpp"],
+    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
+    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    deps = [
+        ":libsyncd_request_shutdown",
+        "//lib:libsairedis",
+    ] + CODE_COVERAGE_LIBS,
+)
+
+libmdio_ipc_client_srcs = [
+    "MdioIpcClient.cpp",
+    "MdioIpcClient.h",
+    "MdioIpcCommon.h",
+]
+
+libmdio_ipc_client_cxxopts = CODE_COVERAGE_CPPFLAGS + ["-Wno-format-truncation"]
+
+libmdio_ipc_client_copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS
+
+libmdio_ipc_client_deps = ["//lib:sairedis"]
+
+cc_library(
+    name = "libmdio_ipc_client.a",
+    srcs = libmdio_ipc_client_srcs,
+    copts = libmdio_ipc_client_copts,
+    cxxopts = libmdio_ipc_client_cxxopts,
+    linkstatic = True,
+    deps = libmdio_ipc_client_deps,
+)
+
+cc_library(
+    name = "libmdio_ipc_client.la",
+    srcs = libmdio_ipc_client_srcs,
+    copts = libmdio_ipc_client_copts,
+    cxxopts = libmdio_ipc_client_cxxopts,
+    linkstatic = False,
+    deps = [
+        "@sonic_swss_common//:libswsscommon",
+    ] + libmdio_ipc_client_deps,
+)
+
+cc_shared_library(
+    name = "libmdio_ipc_client.so",
+    shared_lib_name = "libMdioIpcClient.so",
+    deps = [
+        ":libmdio_ipc_client.a",
+    ],
+)
+
+# TODO(bazel-ready): Delete when we have made a `cc_shared_library` version of libswsscommon.
+cc_import(
+  name = "swsscommon_so_prebuilt",
+  shared_library = "@sonic_swss_common//:libswsscommon_consolidated.so",
+)
+
+# TODO(bazel-ready): Make syncd tests work.
+cc_test(
+    name = "syncd_tests",
+    srcs = ["tests.cpp"],
+    copts = DBGFLAGS + CXXFLAGS_COMMON,
+    tags = ["manual"],
+    deps = [
+        # do not sort
+        # Order matters, this needs to come before anything that imports swsscommon transitively
+        # TODO(bazel-ready): Move back to `libswsscommon` when we have made a `cc_shared_library` version of libswsscommon.
+        ":swsscommon_so_prebuilt",
+        ":libsyncd",
+    ],
+)
+
+# TODO(bazel-ready): Implement full syncd_dash binary. Right now it's only a stub.
+cc_binary(
+    name = "syncd_dash",
+    srcs = syncd_srcs,
+    copts = libsyncd_copts,
+    cxxopts = libsyncd_cxxopts,
+    linkopts = syncd_ldflags,
+    deps = [":libsyncd"] + CODE_COVERAGE_LIBS,
+)
+
+tar(
+    name = "syncd_loose_files",
+    srcs = [
+        ":syncd",
+        ":syncd_dash",
+        ":syncd_request_shutdown",
+        "//saiasiccmp",
+        "//saidiscovery",
+        "//saidump",
+        "//saiplayer",
+        "//saisdkdump",
+    ],
+    mtree = [
+        "./usr/bin/saidump type=file contents=$(location //saidump:saidump)",
+        "./usr/bin/saiplayer type=file contents=$(location //saiplayer:saiplayer)",
+        "./usr/bin/saisdkdump type=file contents=$(location //saisdkdump:saisdkdump)",
+        "./usr/bin/saidiscovery type=file contents=$(location //saidiscovery:saidiscovery)",
+        "./usr/bin/saiasiccmp type=file contents=$(location //saiasiccmp:saiasiccmp)",
+        "./usr/bin/syncd type=file contents=$(location :syncd)",
+        "./usr/bin/syncd_dash type=file contents=$(location :syncd_dash)",
+        "./usr/bin/syncd_request_shutdown type=file contents=$(location :syncd_request_shutdown)",
+    ],
+)
+
+mtree_from_lines(
+    name = "syncd_per_platform_files_x86_64_mtree",
+    contents = [
+        "./usr/lib/x86_64-linux-gnu/libMdioIpcClient.so type=file contents=$(location :libmdio_ipc_client.so)",
+        "./usr/lib/x86_64-linux-gnu/libMdioIpcClient.so.0 type=link link=./usr/lib/x86_64-linux-gnu/libMdioIpcClient.so",
+    ],
+    data = [":libmdio_ipc_client.so"],
+)
+
+tar(
+    name = "syncd_per_platform_files",
+    srcs = [
+        ":libmdio_ipc_client.so",
+    ],
+    mtree = select({
+        "@platforms//cpu:x86_64": ":syncd_per_platform_files_x86_64_mtree",
+        "//conditions:default": "@platforms//:incompatible",
+    }),
+)
+
+tar(
+    name = "syncd_scripts",
+    srcs = glob(["scripts/**"]),
+    mutate = mutate(
+        package_dir = "./usr/bin",
+        strip_prefix = package_name(),
+    ),
+)
+
+flatten(
+    name = "syncd_pkg",
+    tars = [
+        ":syncd_loose_files",
+        ":syncd_per_platform_files",
+        ":syncd_scripts",
+    ],
+)
