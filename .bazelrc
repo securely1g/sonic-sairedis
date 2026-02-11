@@ -1,0 +1,3 @@
+build:stamp --stamp
+build:stamp --workspace_status_command="/home/blorente/code/github.com/sonic-net/sonic-sairedis/stamp_vars.sh"
+build --config=stamp

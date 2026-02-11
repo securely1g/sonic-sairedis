@@ -1,0 +1,31 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@bazel_lib//lib:run_binary.bzl", "run_binary")
+load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
+
+copy_to_directory(
+  name = "swss_common_headers",
+  srcs = ["@sonic_swss_common//:hdrs"],
+  out = "swss",
+  root_paths = ["common"],
+  include_external_repositories = ["*"],
+)
+
+sh_binary(
+  name = "create_config",
+  srcs = [":create_config.bazel.sh"],
+)
+
+run_binary(
+  name = "config",
+  tool = ":create_config",
+  args = ["$(execpath config.h)"],
+  outs = ["config.h"],
+  # This file bakes in the commits for sairedis and SAI,
+  # so it always must be stamped.
+  # It only invalidates a small number of downstream files, so we think it's acceptable.
+  stamp = 1,
+)
+

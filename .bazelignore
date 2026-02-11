@@ -1,0 +1,3 @@
+# Ignore SAI, it has its own Bazel module
+# and is included in ./MODULE.bazel
+SAI
