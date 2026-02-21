@@ -135,7 +135,7 @@ copy_to_directory(
 )
 
 
-# TODO: We may need to also do the files in `debian/libsaimetadata-dev.links`, which create symlinks to .0:
+# TODO(bazel-ready): We may need to also do the files in `debian/libsaimetadata-dev.links`, which create symlinks to .0:
 # /usr/lib/${DEB_HOST_MULTIARCH}/libsaimetadata.so.0 /usr/lib/${DEB_HOST_MULTIARCH}/libsaimetadata.so
 # /usr/lib/${DEB_HOST_MULTIARCH}/libsaimeta.so.0 /usr/lib/${DEB_HOST_MULTIARCH}/libsaimeta.so
 tar(
