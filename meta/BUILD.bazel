@@ -13,7 +13,7 @@ cc_library(
     "@sai//meta:saimetadata.c",
     "@sai//meta:saimetadatautils.c",
     "@sai//meta:saiserialize.c",
-    "@sai//meta:deps",
+    "@sai//meta:libsai.cpp",
   ],
   deps = [
     "@sai//meta:header_lib",
