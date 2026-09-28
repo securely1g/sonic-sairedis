@@ -1,0 +1,151 @@
+{
+  "format_version": 1,
+  "source_commit": "6dd738196ebb267be458eed0a00b687568455914",
+  "source_archive_sha256": "c3245b27beee0d3d73531a9c5ffcb0473ff5fea9b32124954c25a50cb5e56750",
+  "ordered_tags": [
+    {
+      "version": "v1.10.0",
+      "commit": "abaf952b2f5c7a0674bcc91fbc466f5c20a3a1c2"
+    },
+    {
+      "version": "v1.10.1",
+      "commit": "2af4c673000f52f71b020bba69e509d06bf4bb0a"
+    },
+    {
+      "version": "v1.10.2",
+      "commit": "d721a65216cd5073637335b1ca0690f100c617e6"
+    },
+    {
+      "version": "v1.11.0",
+      "commit": "aff3a15c1ebdaabaef92de9dc5682f4f11a796b9"
+    },
+    {
+      "version": "v1.12.0",
+      "commit": "3ff228a7e5619a56e3c169966cb1a8631705768a"
+    },
+    {
+      "version": "v1.12.1",
+      "commit": "db64df02cb8fae73b9cdb2787d0ccfc40e635e71"
+    },
+    {
+      "version": "v1.13.0",
+      "commit": "4cb229c2d55cbe36c2ac10204d1fe4476f4937bd"
+    },
+    {
+      "version": "v1.13.1",
+      "commit": "5320c2ee1baa0dfb51f12f4682677d83a90ea723"
+    },
+    {
+      "version": "v1.13.2",
+      "commit": "291101ae75ae4876a34631ab5d673a1ff5a624f9"
+    },
+    {
+      "version": "v1.13.3",
+      "commit": "ef2e59130e35d9f19f9c9e97ff68988f8e05d906"
+    },
+    {
+      "version": "v1.14.0",
+      "commit": "2587c3b89241022bb0eef3ef82ab764eda7a183c"
+    },
+    {
+      "version": "v1.14.1",
+      "commit": "408d75b610cb6b8d90e21d3bbd7f84586ebd1e1e"
+    },
+    {
+      "version": "v1.15.0",
+      "commit": "9fee2f610cf63e0bf8c880108add94f8fbca6a4e"
+    },
+    {
+      "version": "v1.15.1",
+      "commit": "f214adef0f336cb991bad4461e626dc039f01878"
+    },
+    {
+      "version": "v1.15.2",
+      "commit": "22a9987b2cfeaa192454baee4c009fa475f61669"
+    },
+    {
+      "version": "v1.15.3",
+      "commit": "4d0982283feedd39365a0c5b7bd4f6c1de1be319"
+    },
+    {
+      "version": "v1.15.4",
+      "commit": "86d91b48f96b326997842075e17cd910a8fe34df"
+    },
+    {
+      "version": "v1.15.5",
+      "commit": "ed97c342241e8f1494362971dc347bb349c6aa08"
+    },
+    {
+      "version": "v1.15.6",
+      "commit": "8d5aecfa11cc8f9a4a7c7355cfd3adf68131bb8a"
+    },
+    {
+      "version": "v1.15.7",
+      "commit": "7fac67d39c44d7c0607bb91fb78a6d08a36000c1"
+    },
+    {
+      "version": "v1.16.0",
+      "commit": "f3a8b044b50979a4eb21a7ced2b66563e21ff379"
+    },
+    {
+      "version": "v1.16.1",
+      "commit": "23d8579cd02327b6cc99df174a72395b8fa3af64"
+    },
+    {
+      "version": "v1.16.2",
+      "commit": "ddff45dc7a5d2aadf356ca24643bd3012b3daffc"
+    },
+    {
+      "version": "v1.16.3",
+      "commit": "658c52ac8fd2728b065549a68bc747b9595017e4"
+    },
+    {
+      "version": "v1.16.4",
+      "commit": "7ba3fcd8909b8c0bbcda3ea72df51d7d29ee312b"
+    },
+    {
+      "version": "v1.17.0",
+      "commit": "5b9ae9579642af216693b806b9227ed01687808c"
+    },
+    {
+      "version": "v1.17.1",
+      "commit": "84294516d0c432813c2d33bc74f50a795c4bd5d7"
+    },
+    {
+      "version": "v1.17.2",
+      "commit": "c0c8afaa3af6dde7ffdba7ae0e88177e4c75a98a"
+    },
+    {
+      "version": "v1.17.3",
+      "commit": "e620dcf8316fb9bb772dfbd5c3b7c0f6ffbb3b59"
+    },
+    {
+      "version": "v1.17.4",
+      "commit": "e83624c9ba86788156a2074effc818d7b01d79de"
+    },
+    {
+      "version": "v1.17.5",
+      "commit": "0ac228e5033f271c6e02a5015d9120c51c1cdcd9"
+    },
+    {
+      "version": "v1.18.0",
+      "commit": "4b4347b59397c462b804da2ccd7784214406477a"
+    },
+    {
+      "version": "v1.18.1",
+      "commit": "c67f1152309ca08a94de0be8634a733c5cb25c35"
+    },
+    {
+      "version": "v1.19.0",
+      "commit": "bcd052d19849c8ee819b145bc08798f272fde64e"
+    }
+  ],
+  "final_revision": "HEAD",
+  "header_sha256": "4a92751ac24626ca7a141fc8530568bba74c67f5561e98634c0f2d6eff6ad17b",
+  "regeneration": [
+    "Use a clean full tagged clone of https://github.com/opencomputeproject/SAI.git with exactly the ordered tag revisions above.",
+    "git checkout --detach 6dd738196ebb267be458eed0a00b687568455914",
+    "make -C meta saiattrversion.h",
+    "Copy meta/saiattrversion.h here and update header_sha256."
+  ]
+}

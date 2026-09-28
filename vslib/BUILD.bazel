@@ -1,8 +1,11 @@
 load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_distroless//distroless:defs.bzl", "flatten")
 load("@tar.bzl", "mutate", "tar")
-load("//bazel:common.bzl", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
-load("//bazel:packaging.bzl", "mtree_from_lines")
+load("//bazel:common.bzl", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_LINKOPTS", "CXXFLAGS_COMMON", "PRODUCTION_COPTS", "TEST_COPTS", "VPP_COMPATIBLE", "VPP_COPTS", "VPP_DEPS", "multiarch_mtree", "sairedis_shared_library", "working_directory_test")
+load("//bazel:packaging.bzl", "multiarch_deploy_tar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,54 +14,80 @@ filegroup(
     srcs = glob(["*.h"]),
 )
 
-CFLAGS_COMMON = [
-    "-fPIC",
-    "-pipe",
-    "-Wall",
-    "-Wcast-align",
-    "-Wcast-qual",
-    "-Wconversion",
-    "-Wdisabled-optimization",
-    "-Werror",
-    "-Wextra",
-    "-Wfloat-equal",
-    "-Wformat=2",
-    "-Wformat-nonliteral",
-    "-Wformat-security",
-    "-Wformat-y2k",
-    "-Wimport",
-    "-Winit-self",
-    "-Wno-inline",
-    "-Winvalid-pch",
-    "-Wmissing-field-initializers",
-    "-Wmissing-format-attribute",
-    "-Wmissing-include-dirs",
-    "-Wmissing-noreturn",
-    "-Wno-aggregate-return",
-    "-Wno-padded",
-    "-Wno-switch-enum",
-    "-Wno-unused-parameter",
-    "-Wpacked",
-    "-Wpointer-arith",
-    "-Wredundant-decls",
-    "-Wshadow",
-    "-Wstack-protector",
-    "-Wstrict-aliasing=3",
-    "-Wswitch",
-    "-Wswitch-default",
-    "-Wunreachable-code",
-    "-Wunused",
-    "-Wvariadic-macros",
-    "-Wwrite-strings",
-    "-Wno-switch-default",
-    "-Wconversion",
-    "-Wno-psabi",
-    "-Wcast-align=strict",
+filegroup(
+    name = "source_files",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+        "*.am",
+        "vpp/**/*.cpp",
+        "vpp/**/*.c",
+        "vpp/**/*.h",
+    ]),
+)
+
+exports_files(["saivs.h"])
+
+cc_library(
+    name = "headers",
+    hdrs = [":all_headers"],
+    includes = ["."],
+    deps = [
+        "//:sai_headers",
+        "//lib:headers",
+        "//meta:headers",
+    ],
+)
+
+cc_library(
+    name = "vpp_headers",
+    hdrs = glob([
+        "vpp/*.h",
+        "vpp/vppxlate/*.h",
+    ]),
+    includes = [
+        ".",
+        "vpp",
+        "vpp/vppxlate",
+    ],
+    target_compatible_with = VPP_COMPATIBLE,
+    deps = [":headers"] + VPP_DEPS,
+)
+
+# Make applies AM_CFLAGS, without DBGFLAGS or coverage CFLAGS, to these C TUs.
+cc_library(
+    name = "vpp_c",
+    srcs = [
+        "vpp/vppxlate/SaiAclStats.c",
+        "vpp/vppxlate/SaiIntfStats.c",
+        "vpp/vppxlate/SaiRouteStats.c",
+        "vpp/vppxlate/SaiVppStats.c",
+        "vpp/vppxlate/SaiVppXlate.c",
+    ],
+    copts = [flag for flag in CXXFLAGS_COMMON if flag not in [
+        "-ansi",
+        "-std=c++14",
+        "-Wredundant-decls",
+    ]] + CODE_COVERAGE_CPPFLAGS,
+    target_compatible_with = VPP_COMPATIBLE,
+    deps = [
+        ":vpp_headers",
+        "//:sai_headers",
+    ] + VPP_DEPS,
+)
+
+VS_RUNTIME_DEPS = [
+    "//meta:saimeta_shared",
+    "//:native_boost",
+    "//:native_hiredis",
+    "//:native_json",
+    "//:native_nl",
+    "//:native_nl_genl",
+    "//:native_nl_nf",
+    "//:native_nl_route",
+    "//:native_zmq",
+    "@sonic_swss_common//:libswsscommon_shared",
 ]
-
-AM_CFLAGS = ["-fPIC"] + CFLAGS_COMMON
-
-AM_CXXFLAGS = []  # Note: All of these are handled in the targets
 
 cc_library(
     name = "saivs.a",
@@ -88,6 +117,8 @@ cc_library(
         "MACsecIngressFilter.cpp",
         "MACsecManager.cpp",
         "NetMsgRegistrar.cpp",
+        "PortConfigFileParser.cpp",
+        "PortConfigMap.cpp",
         "RealObjectIdManager.cpp",
         "ResourceLimiter.cpp",
         "ResourceLimiterContainer.cpp",
@@ -107,6 +138,8 @@ cc_library(
         "SwitchConfigContainer.cpp",
         "SwitchContainer.cpp",
         "SwitchMLNX2700.cpp",
+        "SwitchMicas48CON2SFP.cpp",
+        "SwitchNokiaVS.cpp",
         "SwitchNvdaMBF2H536C.cpp",
         "SwitchState.cpp",
         "SwitchStateBase.cpp",
@@ -118,158 +151,141 @@ cc_library(
         "VirtualSwitchSaiInterface.cpp",
         "VirtualSwitchSaiInterfaceFdb.cpp",
         "VirtualSwitchSaiInterfacePort.cpp",
-        "//:swss_common_headers",
-    ],
-    hdrs = [
-        ":all_headers",
-    ],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CPPFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    deps = [
-        "//lib:libsairedis",
-        "//meta:libsaimeta",
-        "//meta:libsaimetadata",
-        "@bookworm//libboost-dev:libboost",
-        "@bookworm//libhiredis-dev:libhiredis",
-        "@bookworm//nlohmann-json3-dev:nlohmann-json3",
-    ],
+    ] + select({
+        "//:vpp_enabled": [
+            "vpp/CRMTracker.cpp",
+            "vpp/SaiObjectDB.cpp",
+            "vpp/SaiVppLog.cpp",
+            "vpp/SwitchVpp.cpp",
+            "vpp/SwitchVppAcl.cpp",
+            "vpp/SwitchVppBfd.cpp",
+            "vpp/SwitchVppFdb.cpp",
+            "vpp/SwitchVppHostif.cpp",
+            "vpp/SwitchVppMirror.cpp",
+            "vpp/SwitchVppMpls.cpp",
+            "vpp/SwitchVppNbr.cpp",
+            "vpp/SwitchVppNexthop.cpp",
+            "vpp/SwitchVppRif.cpp",
+            "vpp/SwitchVppRoute.cpp",
+            "vpp/SwitchVppSRv6.cpp",
+            "vpp/SwitchVppSflow.cpp",
+            "vpp/SwitchVppUtils.cpp",
+            "vpp/TunnelManager.cpp",
+            "vpp/VppInterfaceRegistry.cpp",
+        ],
+        "//conditions:default": [],
+    }),
+    copts = PRODUCTION_COPTS + VPP_COPTS,
+    linkopts = CODE_COVERAGE_LINKOPTS,
+    deps = [":headers"] + VS_RUNTIME_DEPS + VPP_DEPS + select({
+        "//:vpp_enabled": [
+            ":vpp_c",
+            ":vpp_headers",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
     name = "libsaivs",
-    srcs = [
-        "sai_vs_acl.cpp",
-        "sai_vs_ars.cpp",
-        "sai_vs_ars_profile.cpp",
-        "sai_vs_bfd.cpp",
-        "sai_vs_bmtor.cpp",
-        "sai_vs_bridge.cpp",
-        "sai_vs_buffer.cpp",
-        "sai_vs_counter.cpp",
-        "sai_vs_dash_acl.cpp",
-        "sai_vs_dash_direction_lookup.cpp",
-        "sai_vs_dash_eni.cpp",
-        "sai_vs_dash_inbound_routing.cpp",
-        "sai_vs_dash_meter.cpp",
-        "sai_vs_dash_outbound_ca_to_pa.cpp",
-        "sai_vs_dash_outbound_routing.cpp",
-        "sai_vs_dash_pa_validation.cpp",
-        "sai_vs_dash_vip.cpp",
-        "sai_vs_dash_vnet.cpp",
-        "sai_vs_debug_counter.cpp",
-        "sai_vs_dtel.cpp",
-        "sai_vs_fdb.cpp",
-        "sai_vs_genericprogrammable.cpp",
-        "sai_vs_hash.cpp",
-        "sai_vs_hostif.cpp",
-        "sai_vs_interfacequery.cpp",
-        "sai_vs_ipmc.cpp",
-        "sai_vs_ipmc_group.cpp",
-        "sai_vs_ipsec.cpp",
-        "sai_vs_isolation_group.cpp",
-        "sai_vs_l2mc.cpp",
-        "sai_vs_l2mcgroup.cpp",
-        "sai_vs_lag.cpp",
-        "sai_vs_macsec.cpp",
-        "sai_vs_mcastfdb.cpp",
-        "sai_vs_mirror.cpp",
-        "sai_vs_mpls.cpp",
-        "sai_vs_my_mac.cpp",
-        "sai_vs_nat.cpp",
-        "sai_vs_neighbor.cpp",
-        "sai_vs_nexthop.cpp",
-        "sai_vs_nexthopgroup.cpp",
-        "sai_vs_poe.cpp",
-        "sai_vs_policer.cpp",
-        "sai_vs_port.cpp",
-        "sai_vs_qosmap.cpp",
-        "sai_vs_queue.cpp",
-        "sai_vs_route.cpp",
-        "sai_vs_router_interface.cpp",
-        "sai_vs_rpfgroup.cpp",
-        "sai_vs_samplepacket.cpp",
-        "sai_vs_scheduler.cpp",
-        "sai_vs_schedulergroup.cpp",
-        "sai_vs_srv6.cpp",
-        "sai_vs_stp.cpp",
-        "sai_vs_switch.cpp",
-        "sai_vs_system_port.cpp",
-        "sai_vs_tam.cpp",
-        "sai_vs_tunnel.cpp",
-        "sai_vs_twamp.cpp",
-        "sai_vs_udf.cpp",
-        "sai_vs_virtual_router.cpp",
-        "sai_vs_vlan.cpp",
-        "sai_vs_wred.cpp",
-    ],
-    hdrs = [
-        ":all_headers",
-    ],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    deps = [
-        ":saivs.a",
-    ] + CODE_COVERAGE_LIBS,
+    srcs = ["//bazel/sai:vs_stub"],
+    copts = PRODUCTION_COPTS + VPP_COPTS,
+    deps = [":saivs.a"],
+    alwayslink = True,
 )
 
-# TODO(bazel-ready): Migrate to cc_shared_library
-cc_binary(
+sairedis_shared_library(
     name = "libsaivs_shared",
-    linkshared = True,
-    linkstatic = True,
+    consumer_deps = [":headers"] + VS_RUNTIME_DEPS + VPP_DEPS,
+    consumer_name = "saivs_shared",
+    soname = "libsaivs.so.0",
     deps = [":libsaivs"],
 )
 
+# This existing test exercises the generated C entry points through the DSO.
 cc_test(
     name = "tests",
     srcs = ["tests.cpp"],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON,
-    deps = [
-        ":libsaivs",
-        "@sonic_swss_common//:libswsscommon",
+    copts = TEST_COPTS + VPP_COPTS,
+    linkopts = ["-pthread"] + CODE_COVERAGE_LINKOPTS,
+    tags = [
+        "exclusive",
+        "manual",
+        "requires-redis",
     ],
+    deps = [":saivs_shared"],
 )
 
-# Because we don't want to name all the headers one by one in the mtree,
-# we create a directory at the right path.
+working_directory_test(
+    name = "tests_test",
+    program = ":tests",
+    tags = [
+        "exclusive",
+        "manual",
+        "requires-redis",
+    ],
+    working_directory = "vslib",
+)
+
 copy_to_directory(
     name = "deb_headers_directory",
-    srcs = [
-        "@sai//experimental:deb_headers",
-        "@sai//inc:deb_headers",
-    ],
+    srcs = ["//bazel/sai:api_header_files"],
     out = "usr/include/sai",
-    include_external_repositories = ["sai*"],
+    include_external_repositories = ["*"],
+    root_paths = ["**"],
 )
 
-mtree_from_lines(
-    name = "libsaivs_pkg_x86_64_mtree",
-    contents = [
-        "./usr/lib/x86_64-linux-gnu/libsaivs.so type=file contents=$(location :libsaivs_shared)",
-        "./usr/lib/x86_64-linux-gnu/libsaivs.so.0 type=link link=./usr/lib/x86_64-linux-gnu/libsaivs.so",
+multiarch_deploy_tar(
+    name = "libsaivs_runtime",
+    binaries = {
+        "usr/lib/{multiarch}/libsaivs.so.0.0.0 uid=0 gid=0 mode=0644 type=file": ":libsaivs_shared",
+    },
+    mtree = [
+        "usr/lib/{multiarch}/libsaivs.so.0 uid=0 gid=0 mode=0777 type=link link=libsaivs.so.0.0.0",
     ],
-    data = [":libsaivs_shared"],
+    visibility = ["//visibility:private"],
 )
 
-tar(
+flatten(
     name = "libsaivs_pkg",
-    srcs = [":libsaivs_shared"],
-    mtree = select({
-        "@platforms//cpu:x86_64": ":libsaivs_pkg_x86_64_mtree",
-        "//conditions:default": "@platforms//:incompatible",
-    }),
-    visibility = ["//visibility:public"],
+    tars = [":libsaivs_runtime"],
+)
+
+copy_file(
+    name = "libsaivs_pkg.debug_symbols",
+    src = ":libsaivs_runtime.debug_symbols",
+    out = "libsaivs_pkg.debug_symbols.tar",
 )
 
 tar(
-    name = "libsaivs_dev_files",
-    srcs = [
-        ":deb_headers_directory",
-        ":saivs.h",
+    name = "libsaivs_api_headers",
+    srcs = [":deb_headers_directory"],
+    mutate = mutate(strip_prefix = package_name()),
+)
+
+# Preserve the path emitted by debian/libsaivs-dev.install.
+tar(
+    name = "libsaivs_legacy_header",
+    srcs = ["saivs.h"],
+    mtree = [
+        "vslib/saivs.h uid=0 gid=0 mode=0644 type=file content=$(location saivs.h)",
     ],
-    mutate = mutate(
-        package_dir = ".",
-        strip_prefix = package_name(),
+)
+
+flatten(
+    name = "libsaivs_dev_files",
+    tars = [
+        ":libsaivs_api_headers",
+        ":libsaivs_legacy_header",
+    ],
+)
+
+tar(
+    name = "libsaivs_dev_links",
+    mtree = multiarch_mtree(
+        name = "libsaivs_dev_links",
+        contents = ["usr/lib/{multiarch}/libsaivs.so uid=0 gid=0 mode=0777 type=link link=libsaivs.so.0"],
+        data = [],
     ),
 )
 
@@ -278,6 +294,11 @@ flatten(
     tars = [
         ":libsaivs_dev_files",
         ":libsaivs_pkg",
+        ":libsaivs_dev_links",
     ],
-    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "libsaivs_dev_pkg.debug_symbols",
+    actual = ":libsaivs_pkg.debug_symbols",
 )

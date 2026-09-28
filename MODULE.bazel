@@ -1,83 +1,96 @@
-module(name = "sonic-sairedis")
+# Keep bazel_compatibility in sync with sonic-buildimage's .bazelversion.
+module(
+    name = "sonic-sairedis",
+    version = "0.0.0",
+    bazel_compatibility = [
+        ">=8.5.1",
+        "<=8.5.1",
+    ],
+)
 
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.3", dev_dependency = True)
+
+bazel_dep(name = "bazel_lib", version = "3.1.1")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "googletest", version = "1.16.0", repo_name = "com_google_googletest")
+bazel_dep(name = "libnl3", version = "3.7.0.sonic-buildimage")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_distroless", version = "0.9.4")
+bazel_dep(name = "rules_perl", version = "1.1.2")
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "swig", version = "4.3.0.bcr.2")
+bazel_dep(name = "tar.bzl", version = "0.10.5")
+bazel_dep(name = "sonic-build-infra", version = "0.0.4-83b4e9d963f7f268d06983a8c954fc5d6d93ce2b", repo_name = "sonic_build_infra")
+bazel_dep(name = "sonic-swss-common", version = "0.0.0", repo_name = "sonic_swss_common")
+
+# PR #6 supplies the default YANG schema generator and is not published in the
+# SONiC registry yet. Keep this override until a release carries the same source.
+archive_override(
+    module_name = "sonic-swss-common",
+    integrity = "sha256-RnFSZM8nze11iYQ3hx2AfA2CIBCB1eP3bUfsHD64/D0=",
+    strip_prefix = "sonic-swss-common-e2d30c70a958acbb1ddc724c96fe971eaee1c856",
+    urls = ["https://github.com/securely1g/sonic-swss-common/archive/e2d30c70a958acbb1ddc724c96fe971eaee1c856.tar.gz"],
+)
+
+# Pin the shared C++ header correction on the existing infrastructure baseline
+# until a registry release includes it. Dependency overrides are ignored, so
+# retain PR #6's optional runtime-path feature in this root for its YANG binding.
+archive_override(
+    module_name = "sonic-build-infra",
+    integrity = "sha256-ccT9hbST1WJbih2D9XiIJPAcYvcFTQq4RFXLyg5fswo=",
+    patch_strip = 1,
+    patches = ["//third_party/sonic-build-infra:sonic-build-infra-optional-runtime-paths.patch"],
+    strip_prefix = "sonic-build-infra-8851bb567ad8532f1e7d882fda8fab864d167c0c",
+    urls = ["https://github.com/securely1g/sonic-build-infra/archive/8851bb567ad8532f1e7d882fda8fab864d167c0c.tar.gz"],
+)
+
+gcc = use_extension("@sonic_build_infra//toolchains/gcc:extensions.bzl", "gcc")
+use_repo(gcc, "gcc_toolchains")
+
+register_toolchains("@gcc_toolchains//:all")
+
+# Native libraries and headers use the shared, pinned Trixie dependency set.
+apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
+apt.install(
+    dependency_set = "trixie",
+    packages = ["zlib1g-dev"],
+    suites = [
+        "trixie",
+        "trixie-updates",
+        "trixie-security",
+    ],
+)
+use_repo(apt, "trixie")
+
+# Bazel consumes an immutable SAI archive and an explicit attribute-version
+# history. The legacy SAI submodule remains available to the Make build.
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "bazel_lib", version = "3.1.1")
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "tar.bzl", version = "0.8.1")
-bazel_dep(name = "sonic-build-infra", version = "0.0.0", repo_name = "sonic_build_infra")
-local_path_override(
-    module_name = "sonic-build-infra",
-    path = "../sonic-build-infra",
-)
-
-register_toolchains("@sonic_build_infra//toolchains/gcc:host_gcc_toolchain")
-
-bazel_dep(name = "rules_distroless", version = "0.0.0")
-local_path_override(
-    module_name = "rules_distroless",
-    path = "../rules_distroless",
-)
-
 http_archive(
-    name = "com_google_googletest",
-    sha256 = "78c676fc63881529bf97bf9d45948d905a66833fbfa5318ea2cd7478cb98f399",
-    strip_prefix = "googletest-1.16.0",
-    urls = ["https://github.com/google/googletest/releases/download/v1.16.0/googletest-1.16.0.tar.gz"],
+    name = "sai_source",
+    build_file = "//third_party/sai:BUILD.sai.bazel",
+    files = {"meta/saiattrversion.h": "//third_party/sai:saiattrversion.h"},
+    integrity = "sha256-wyRbJ77uDT1zUxqcX/ywRz/1/qmzISSVTCWlDLXlZ1A=",
+    patch_strip = 1,
+    patches = ["//third_party/sai:declared_aspell.patch"],
+    strip_prefix = "SAI-6dd738196ebb267be458eed0a00b687568455914",
+    urls = ["https://github.com/opencomputeproject/SAI/archive/6dd738196ebb267be458eed0a00b687568455914.tar.gz"],
 )
 
-apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
-apt.sources_list(
-    architectures = ["amd64"],
-    components = ["main"],
-    suites = [
-        "bookworm",
-        "bookworm-updates",
-    ],
-    uris = ["https://snapshot.debian.org/archive/debian/20251001T023456Z"],
-)
-apt.sources_list(
-    architectures = ["amd64"],
-    components = ["main"],
-    suites = ["bookworm-security"],
-    uris = ["https://snapshot.debian.org/archive/debian-security/20251001T023456Z"],
+# Transitional, component-owned execution tools. Original Debian archives
+# are locked per native architecture and prepared by a declared Python action.
+generator_tools_repository = use_repo_rule("//third_party/tools:repository.bzl", "generator_tools_repository")
+
+generator_tools_repository(
+    name = "sairedis_generator_tools_amd64",
+    architecture = "amd64",
+    manifest = "//third_party/tools:debian_tools.lock.json",
 )
 
-bazel_dep(name = "sonic-swss-common", version = "0.0.0", repo_name = "sonic_swss_common")
-local_path_override(
-    module_name = "sonic-swss-common",
-    path = "../sonic-swss-common",
+generator_tools_repository(
+    name = "sairedis_generator_tools_arm64",
+    architecture = "arm64",
+    manifest = "//third_party/tools:debian_tools.lock.json",
 )
-
-bazel_dep(name = "sai", version = "0.0.0")
-local_path_override(
-    module_name = "sai",
-    path = "./SAI",
-)
-
-apt.install(
-    dependency_set = "bookworm",
-    packages = [
-        # For this repo
-        "libhiredis-dev",
-        "libzmq3-dev",
-        "python3-dev",
-        "libboost-dev",
-        "libboost-serialization-dev",
-        "nlohmann-json3-dev",
-        # For rpcserver
-        "libthrift-dev",
-        # For dashsai
-        "libprotobuf-dev",
-        "libgrpc-dev",
-        "libgrpc++-dev",
-    ],
-    suites = [
-        "bookworm",
-        "bookworm-updates",
-    ],
-)
-apt.lock(into = ":packages.lock")
-use_repo(apt, "bookworm")

@@ -1,0 +1,87 @@
+diff --git a/toolchains/gcc/args/platform_dependent_args.bzl b/toolchains/gcc/args/platform_dependent_args.bzl
+--- a/toolchains/gcc/args/platform_dependent_args.bzl
++++ b/toolchains/gcc/args/platform_dependent_args.bzl
+@@ -144,6 +144,13 @@
+     "../../../../../../../{{libc6-dev}}/usr/include/{multiarch}",
+ ]
+-
++
++# Runtime paths for installed target libraries. Keep these enabled by default,
++# while allowing private execution tools to rely only on declared runfiles.
++INSTALLED_RUNTIME_PATH_ARGS = [
++    "-Wl,-rpath=/lib/{multiarch}",
++    "-Wl,-rpath=/usr/lib/{multiarch}/gconv",
++]
++
+ _LINK_ARGS = [
+     # Debian ships libc.so/libm.so as GNU ld scripts (GROUP/AS_NEEDED) that name
+     # the real .so files by absolute host path, e.g. /lib/x86_64-linux-gnu/libc.so.6.
+@@ -160,7 +167,6 @@
+     "-Wl,--remap-inputs=/usr/lib/{multiarch}/libc_nonshared.a={{libc6-dev}}/usr/lib/{multiarch}/libc_nonshared.a",
+     "-B",
+     "{{libc6}}/lib/{multiarch}",
+-    "-Wl,-rpath=/lib/{multiarch}",
+     "-Wl,-rpath-link=/lib/{multiarch}",
+     "-B",
+     "{{libc6-dev}}/usr/lib/{multiarch}",
+@@ -168,7 +174,6 @@
+     "{{libgcc-s1}}/lib/{multiarch}",
+     "-L",
+     "{{libstdcxx-dev}}/usr/lib/gcc/{multiarch}/{gcc_major}",
+-    "-Wl,-rpath=/usr/lib/{multiarch}/gconv",
+-
++
+     # For rules_foreign_cc and rules_rust to work after changing its workdir
+     "-B",
+diff --git a/toolchains/gcc/defs.bzl b/toolchains/gcc/defs.bzl
+--- a/toolchains/gcc/defs.bzl
++++ b/toolchains/gcc/defs.bzl
+@@ -5,12 +5,14 @@
+ """
+-
++
+ load("@rules_cc//cc/toolchains:args.bzl", "cc_args")
++load("@rules_cc//cc/toolchains:feature.bzl", "cc_feature")
+ load("@rules_cc//cc/toolchains:tool.bzl", "cc_tool")
+ load("@rules_cc//cc/toolchains:tool_map.bzl", "cc_tool_map")
+ load("@rules_cc//cc/toolchains:toolchain.bzl", "cc_toolchain")
+ load("//toolchains/gcc:gcc.bzl", "GCC_METADATA", "gcc_repo_name")
+ load(
+     "//toolchains/gcc/args:platform_dependent_args.bzl",
++    "INSTALLED_RUNTIME_PATH_ARGS",
+     "PLATFORM_DEPENDENT_ARGS",
+     "resolve_args",
+     "resolve_packages",
+@@ -180,12 +182,29 @@
+         for spec in _PLATFORM_DEPENDENT_ARGS
+     ]
+-
++
++    # Installed target paths remain the default. Private execution tools may
++    # disable this feature so their loader uses only declared Bazel runfiles.
++    cc_args(
++        name = name + "_installed_runtime_paths",
++        actions = [
++            "@rules_cc//cc/toolchains/actions:link_actions",
++            "@rules_cc//cc/toolchains/actions:link_executable_actions",
++        ],
++        args = resolve_args(cpu, version, debian_gcc_major, INSTALLED_RUNTIME_PATH_ARGS),
++    )
++    cc_feature(
++        name = name + "_installed_runtime_paths_feature",
++        args = [":" + name + "_installed_runtime_paths"],
++        feature_name = "sonic_installed_runtime_paths",
++    )
++    features = _FEATURES + [":" + name + "_installed_runtime_paths_feature"]
++
+     cc_toolchain(
+         name = name + "_cc_toolchain",
+         args = _PLATFORM_INDEPENDENT_ARGS + platform_dependent_args,
+         compiler = "gcc",
+-        enabled_features = _FEATURES,
+-        known_features = _FEATURES,
++        enabled_features = features,
++        known_features = features,
+         tags = ["manual"],
+         tool_map = name + "_tools",
+     )

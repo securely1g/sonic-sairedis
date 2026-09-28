@@ -1,0 +1,3 @@
+# Copied byte-for-byte from securely1g/sonic-swss-common PR #6 at
+# e2d30c70a958acbb1ddc724c96fe971eaee1c856.
+exports_files(["sonic-build-infra-optional-runtime-paths.patch"])

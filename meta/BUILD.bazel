@@ -1,51 +1,106 @@
 load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_distroless//distroless:defs.bzl", "flatten")
 load("@tar.bzl", "mutate", "tar")
-load("//bazel:common.bzl", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+load("//bazel:common.bzl", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_LINKOPTS", "DBGFLAGS", "PRODUCTION_COPTS", "multiarch_mtree", "sairedis_shared_library")
+load("//bazel:packaging.bzl", "multiarch_deploy_tar")
 
 package(default_visibility = ["//visibility:public"])
-
-AM_CXXFLAGS = []
-
-cc_library(
-    name = "libsaimetadata",
-    srcs = [
-        "@sai//meta:deps",
-        "@sai//meta:saimetadata.c",
-        "@sai//meta:saimetadatautils.c",
-        "@sai//meta:saiserialize.c",
-        "@sai//meta:libsai.cpp",
-    ],
-    copts = DBGFLAGS + ["-ansi"] + CODE_COVERAGE_CFLAGS + ["-fPIC"],
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    deps = [
-        "//:sai_headers",
-    ],
-)
 
 filegroup(
     name = "all_headers",
     srcs = glob(["*.h"]),
 )
 
+filegroup(
+    name = "source_files",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+        "*.am",
+    ]),
+)
+
+exports_files([
+    "MetaTestSaiInterface.cpp",
+    "NumberOidIndexGenerator.cpp",
+])
+
+cc_library(
+    name = "headers",
+    hdrs = [":all_headers"],
+    include_prefix = "meta",
+    includes = ["."],
+    strip_include_prefix = ".",
+    deps = [
+        "//:sai_headers",
+        "//lib:headers",
+    ],
+)
+
+# Only this library compiles the generated metadata globals. All other
+# components import libsaimetadata.so.0 through :saimetadata_shared.
+cc_library(
+    name = "libsaimetadata",
+    srcs = [
+        "//bazel/sai:metadata_support_sources",
+        "//bazel/sai:saimetadata_c",
+    ],
+    copts = DBGFLAGS + [
+        "-ansi",
+        "-fPIC",
+    ] + CODE_COVERAGE_CPPFLAGS + CODE_COVERAGE_CFLAGS,
+    linkopts = CODE_COVERAGE_LINKOPTS,
+    deps = ["//:sai_headers"],
+    alwayslink = True,
+)
+
+sairedis_shared_library(
+    name = "saimetadata",
+    consumer_deps = ["//:sai_headers"],
+    consumer_name = "saimetadata_shared",
+    linkopts = ["-ldl"],
+    soname = "libsaimetadata.so.0",
+    deps = [":libsaimetadata"],
+)
+
+META_RUNTIME_DEPS = [
+    ":saimetadata_shared",
+    "//:native_hiredis",
+    "//:native_json",
+    "//:native_zmq",
+    "@sonic_swss_common//:libswsscommon_shared",
+]
+
 cc_library(
     name = "libsaimeta",
     srcs = [
         "AttrKeyMap.cpp",
+        "DashMeta.cpp",
+        "DummySaiInterface.cpp",
         "Globals.cpp",
         "Meta.cpp",
         "MetaKeyHasher.cpp",
         "Notification.cpp",
+        "NotificationBfdSessionStateChange.cpp",
         "NotificationFactory.cpp",
         "NotificationFdbEvent.cpp",
+        "NotificationFlowBulkGetSessionEvent.cpp",
+        "NotificationHaScopeEvent.cpp",
+        "NotificationHaSetEvent.cpp",
+        "NotificationIcmpEchoSessionStateChange.cpp",
+        "NotificationMacsecPostStatus.cpp",
         "NotificationNatEvent.cpp",
+        "NotificationPortHostTxReadyEvent.cpp",
         "NotificationPortStateChange.cpp",
         "NotificationQueuePfcDeadlock.cpp",
         "NotificationSwitchAsicSdkHealthEvent.cpp",
+        "NotificationSwitchMacsecPostStatus.cpp",
         "NotificationSwitchShutdownRequest.cpp",
         "NotificationSwitchStateChange.cpp",
-        "NotificationBfdSessionStateChange.cpp",
+        "NotificationTamTelTypeConfigChange.cpp",
         "NotificationTwampSessionEvent.cpp",
-        "NotificationPortHostTxReadyEvent.cpp",
         "NumberOidIndexGenerator.cpp",
         "OidRefCounter.cpp",
         "PerformanceIntervalTimer.cpp",
@@ -59,98 +114,100 @@ cc_library(
         "SaiSerialize.cpp",
         "SelectableChannel.cpp",
         "ZeroMQSelectableChannel.cpp",
-        # Headers from lib to break dependency cycles between meta and lib
-        "//lib:all_headers",
     ],
-    hdrs = [
-        ":all_headers",
-    ],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    includes = [
-        "../lib",
-        # Some headers in `sonic-swss` want to include these headers without the meta/ prefix.
-        # To allow that, we need to add `-isystem <execroot>/<sairedis path>/meta` to the CLI,
-        # and this is the way we accomplish that.
-        # The alternative would be to prefix every header with `meta` in their include statements.
-        # (e.g. `#include "sai_serialize.h"` becomes `#include "meta/sai_serialize.h"`)
-        "../meta",
-    ],
-    deps = [
-        ":libsaimetadata",
-        "@bookworm//libhiredis-dev:libhiredis",
-        "@sonic_swss_common//:libswsscommon",
-    ] + CODE_COVERAGE_LIBS,
+    copts = PRODUCTION_COPTS,
+    linkopts = CODE_COVERAGE_LINKOPTS,
+    deps = [":headers"] + META_RUNTIME_DEPS,
+    alwayslink = True,
+)
+
+sairedis_shared_library(
+    name = "saimeta",
+    consumer_deps = [":headers"] + META_RUNTIME_DEPS,
+    consumer_name = "saimeta_shared",
+    soname = "libsaimeta.so.0",
+    deps = [":libsaimeta"],
 )
 
 filegroup(
     name = "deb_headers",
     srcs = glob([
-        "sai*.h",
+        "Notification*.h",
         "Sai*.h",
-    ]),
-)
-
-# TODO(bazel-ready): Turn in to cc_shared_library
-cc_binary(
-    name = "saimetadata",
-    linkshared = 1,
-    linkstatic = 1,
-    deps = [
-        ":libsaimetadata",
+        "sai*.h",
+    ]) + [
+        "AttrKeyMap.h",
+        "Globals.h",
+        "Meta.h",
+        "MetaKeyHasher.h",
+        "OidRefCounter.h",
+        "PortRelatedSet.h",
     ],
 )
 
-# TODO(bazel-ready): Turn in to cc_shared_library
-cc_binary(
-    name = "saimeta",
-    linkshared = 1,
-    linkstatic = 1,
-    deps = [
-        ":libsaimeta",
-    ],
-)
-
-# Because we don't want to name all the headers one by one in the mtree,
-# we create a directory at the right path.
 copy_to_directory(
     name = "deb_headers_directory",
     srcs = [
         ":deb_headers",
-        "@sai//meta:deb_headers",
+        "//bazel/sai:metadata_header_files",
     ],
     out = "usr/include/sai",
-    include_external_repositories = ["sai*"],
+    include_external_repositories = ["*"],
+    root_paths = ["**"],
 )
 
-copy_to_directory(
-    name = "deb_libs_directory",
-    srcs = [
-        ":saimeta",
-        ":saimetadata",
+multiarch_deploy_tar(
+    name = "libsaimetadata_runtime",
+    binaries = {
+        "usr/lib/{multiarch}/libsaimeta.so.0.0.0 uid=0 gid=0 mode=0644 type=file": ":saimeta",
+        "usr/lib/{multiarch}/libsaimetadata.so.0.0.0 uid=0 gid=0 mode=0644 type=file": ":saimetadata",
+    },
+    mtree = [
+        "usr/lib/{multiarch}/libsaimeta.so.0 uid=0 gid=0 mode=0777 type=link link=libsaimeta.so.0.0.0",
+        "usr/lib/{multiarch}/libsaimetadata.so.0 uid=0 gid=0 mode=0777 type=link link=libsaimetadata.so.0.0.0",
     ],
-    # TODO(bazel-ready): parameterize based on target triple
-    out = "usr/lib/x86_64-linux-gnu",
+    visibility = ["//visibility:private"],
 )
 
-<<<<<<< HEAD
-
-# TODO(bazel-ready): We may need to also do the files in `debian/libsaimetadata-dev.links`, which create symlinks to .0:
-# /usr/lib/${DEB_HOST_MULTIARCH}/libsaimetadata.so.0 /usr/lib/${DEB_HOST_MULTIARCH}/libsaimetadata.so
-# /usr/lib/${DEB_HOST_MULTIARCH}/libsaimeta.so.0 /usr/lib/${DEB_HOST_MULTIARCH}/libsaimeta.so
-tar(
-    name = "libsaimetadata_dev_pkg",
-    srcs = [
-        ":deb_headers_directory",
-        ":deb_libs_directory",
-    ],
-    mutate = mutate(strip_prefix = package_name()),
-)
-
-tar(
+flatten(
     name = "libsaimetadata_pkg",
-    srcs = [
-        ":deb_libs_directory",
-    ],
+    tars = [":libsaimetadata_runtime"],
+)
+
+copy_file(
+    name = "libsaimetadata_pkg.debug_symbols",
+    src = ":libsaimetadata_runtime.debug_symbols",
+    out = "libsaimetadata_pkg.debug_symbols.tar",
+)
+
+tar(
+    name = "libsaimetadata_headers_pkg",
+    srcs = [":deb_headers_directory"],
     mutate = mutate(strip_prefix = package_name()),
+)
+
+tar(
+    name = "libsaimetadata_dev_links",
+    mtree = multiarch_mtree(
+        name = "libsaimetadata_dev_links",
+        contents = [
+            "usr/lib/{multiarch}/libsaimetadata.so uid=0 gid=0 mode=0777 type=link link=libsaimetadata.so.0",
+            "usr/lib/{multiarch}/libsaimeta.so uid=0 gid=0 mode=0777 type=link link=libsaimeta.so.0",
+        ],
+        data = [],
+    ),
+)
+
+flatten(
+    name = "libsaimetadata_dev_pkg",
+    tars = [
+        ":libsaimetadata_pkg",
+        ":libsaimetadata_headers_pkg",
+        ":libsaimetadata_dev_links",
+    ],
+)
+
+alias(
+    name = "libsaimetadata_dev_pkg.debug_symbols",
+    actual = ":libsaimetadata_pkg.debug_symbols",
 )

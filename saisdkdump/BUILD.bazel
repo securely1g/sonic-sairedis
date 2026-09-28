@@ -1,14 +1,41 @@
-load("//bazel:common.bzl", "CFLAGS_ASAN", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:common.bzl", "CODE_COVERAGE_LINKOPTS", "PRODUCTION_COPTS")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "source_files",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+        "*.am",
+        "*.sh",
+        "*.json",
+    ]),
+)
+
+cc_library(
+    name = "libsaisdkdump_profile",
+    srcs = ["ProfileMap.cpp"],
+    hdrs = ["ProfileMap.h"],
+    copts = PRODUCTION_COPTS,
+    includes = ["."],
+    linkopts = CODE_COVERAGE_LINKOPTS,
+    deps = [
+        "//:sai_headers",
+        "@sonic_swss_common//:libswsscommon_shared",
+    ],
+)
 
 cc_binary(
     name = "saisdkdump",
     srcs = ["saisdkdump.cpp"],
-    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    visibility = ["//syncd:__subpackages__"],
+    copts = PRODUCTION_COPTS,
+    linkopts = ["-pthread"] + CODE_COVERAGE_LINKOPTS,
     deps = [
+        ":libsaisdkdump_profile",
         "//:sailib",
-        "//lib:libsairedis",
-        "//meta:libsaimeta",
+        "//meta:saimeta_shared",
     ],
 )
