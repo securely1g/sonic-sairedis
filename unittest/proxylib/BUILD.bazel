@@ -9,9 +9,9 @@ filegroup(
         "*.cpp",
         "*.h",
         "*.am",
-        "brcm/*",
-        "mlnx/*",
-        "nvda-bf/*",
+        "*.json",
+        "*.ini",
+        "files/**",
     ]),
 )
 
@@ -19,13 +19,8 @@ cc_binary(
     name = "tests_binary",
     testonly = True,
     srcs = [
-        "TestDisabledRedisClient.cpp",
-        "TestSyncdBrcm.cpp",
-        "TestSyncdLib.cpp",
-        "TestSyncdLinkEventDamping.cpp",
-        "TestSyncdMlnx.cpp",
-        "TestSyncdNvdaBf.cpp",
-        "TestZmqRedisClient.cpp",
+        "TestProxy.cpp",
+        "TestSai.cpp",
         "main.cpp",
     ] + glob(["*.h"]),
     copts = TEST_COPTS,
@@ -33,11 +28,12 @@ cc_binary(
     linkopts = ["-pthread"] + CODE_COVERAGE_LINKOPTS,
     tags = ["manual"],
     deps = [
+        # Give Proxy's bare header names precedence over the Redis headers.
+        "//proxylib:headers",
         "//lib:sairedis.a",
         "//meta:saimeta_shared",
+        "//proxylib:saiproxy.a",
         "//syncd:libsyncd",
-        "//syncd:libsyncd_request_shutdown",
-        "//vslib:saivs_shared",
         "@sonic_swss_common//:libswsscommon_shared",
     ] + GTEST_DEPS,
 )
@@ -45,16 +41,11 @@ cc_binary(
 working_directory_test(
     name = "tests",
     data = glob([
-        "brcm/*",
-        "mlnx/*",
-        "nvda-bf/*",
+        "*.json",
+        "*.ini",
+        "files/**",
     ]),
     program = ":tests_binary",
-    tags = [
-        "exclusive",
-        "manual",
-        "requires-redis",
-        "requires-root",
-    ],
-    working_directory = "syncd/tests",
+    tags = ["exclusive"],
+    working_directory = "unittest/proxylib",
 )

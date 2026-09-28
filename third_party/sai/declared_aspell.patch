@@ -1,0 +1,42 @@
+--- a/meta/style.pm
++++ b/meta/style.pm
+@@ -29,6 +29,7 @@
+ use warnings;
+ use diagnostics;
+ use Data::Dumper;
++use IPC::Open2;
+ use utils;
+ 
+ require Exporter;
+@@ -39,7 +40,14 @@
+ 
+     my %wordsToCheck = %{ $hash };
+ 
+-    if (not -e "/usr/bin/aspell")
++    my $aspell = $ENV{"SAI_ASPELL"};
++    my $loader = $ENV{"SAI_ASPELL_LOADER"};
++    my $libraries = $ENV{"SAI_ASPELL_LIBRARY_PATH"};
++    my $dataDir = $ENV{"SAI_ASPELL_DATA_DIR"};
++    my $dictDir = $ENV{"SAI_ASPELL_DICT_DIR"};
++    my $filterDir = $ENV{"SAI_ASPELL_FILTER_DIR"};
++
++    if (not defined $aspell or not -x $aspell or not defined $loader or not -x $loader)
+     {
+         LogError "ASPELL IS NOT PRESENT, please install aspell";
+         return;
+@@ -55,7 +63,14 @@
+ 
+     LogInfo "Words to check: $count";
+ 
+-    my @result = `echo "$all" | /usr/bin/aspell -l en -a -p ./aspell.en.pws 2>&1`;
++    my $pid = open2(my $aspellOut, my $aspellIn, $loader, "--library-path", $libraries,
++        $aspell, "-l", "en", "-a", "-p", "./aspell.en.pws", "--data-dir=$dataDir", "--dict-dir=$dictDir", "--add-filter-path=$filterDir");
++    print {$aspellIn} "$all\n";
++    close $aspellIn;
++    my @result = <$aspellOut>;
++    close $aspellOut;
++    waitpid($pid, 0);
++    LogError "aspell exited with status $?" if $? != 0;
+ 
+     for my $res (@result)
+     {

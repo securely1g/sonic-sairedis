@@ -1,6 +1,10 @@
-load("@bazel_lib//lib:run_binary.bzl", "run_binary")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_distroless//distroless:defs.bzl", "flatten")
 load("@tar.bzl", "tar")
-load("//bazel:common.bzl", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+load("//bazel:common.bzl", "CODE_COVERAGE_LINKOPTS", "PRODUCTION_COPTS", "TEST_COPTS", "multiarch_mtree", "sairedis_shared_library", "working_directory_test")
+load("//bazel:packaging.bzl", "multiarch_deploy_tar")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -9,8 +13,47 @@ filegroup(
     srcs = glob(["*.h"]),
 )
 
-AM_CXXFLAGS = [] # Unnecessary, set by Bazel
+filegroup(
+    name = "source_files",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+        "*.am",
+    ]),
+)
 
+filegroup(
+    name = "dev_headers",
+    srcs = ["sairedis.h"],
+)
+
+exports_files([
+    "Channel.cpp",
+    "SwitchConfig.cpp",
+    "SwitchConfigContainer.cpp",
+    "VirtualObjectIdManager.cpp",
+    "ZeroMQChannel.cpp",
+    "sairedis.h",
+])
+
+cc_library(
+    name = "headers",
+    hdrs = [":all_headers"],
+    includes = ["."],
+    deps = ["//:sai_headers"],
+)
+
+REDIS_RUNTIME_DEPS = [
+    "//meta:saimeta_shared",
+    "//:native_boost",
+    "//:native_hiredis",
+    "//:native_json",
+    "//:native_zmq",
+    "@sonic_swss_common//:libswsscommon_shared",
+]
+
+# This core has no SAI C entry points. syncd and helpers embed it while
+# selecting one separate SAI implementation.
 cc_library(
     name = "sairedis.a",
     srcs = [
@@ -36,122 +79,90 @@ cc_library(
         "Utils.cpp",
         "VirtualObjectIdManager.cpp",
         "ZeroMQChannel.cpp",
-        "//:config",
-        "//:swss_common_headers",
     ],
-    hdrs = [
-        ":all_headers",
-    ],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
+    copts = PRODUCTION_COPTS,
+    linkopts = CODE_COVERAGE_LINKOPTS,
     deps = [
-        "//meta:libsaimeta",
-        "//meta:libsaimetadata",
-        "@bookworm//libboost-dev:libboost",
-        "@bookworm//libhiredis-dev:libhiredis",
-        "@bookworm//nlohmann-json3-dev:nlohmann-json3",
-    ],
+        ":headers",
+        "//:config_headers",
+    ] + REDIS_RUNTIME_DEPS,
 )
 
 cc_library(
     name = "libsairedis",
-    srcs = [
-        "sai_redis_acl.cpp",
-        "sai_redis_ars.cpp",
-        "sai_redis_ars_profile.cpp",
-        "sai_redis_bfd.cpp",
-        "sai_redis_bmtor.cpp",
-        "sai_redis_bridge.cpp",
-        "sai_redis_buffer.cpp",
-        "sai_redis_counter.cpp",
-        "sai_redis_dash_acl.cpp",
-        "sai_redis_dash_direction_lookup.cpp",
-        "sai_redis_dash_eni.cpp",
-        "sai_redis_dash_inbound_routing.cpp",
-        "sai_redis_dash_meter.cpp",
-        "sai_redis_dash_outbound_ca_to_pa.cpp",
-        "sai_redis_dash_outbound_routing.cpp",
-        "sai_redis_dash_pa_validation.cpp",
-        "sai_redis_dash_vip.cpp",
-        "sai_redis_dash_vnet.cpp",
-        "sai_redis_debug_counter.cpp",
-        "sai_redis_dtel.cpp",
-        "sai_redis_fdb.cpp",
-        "sai_redis_genericprogrammable.cpp",
-        "sai_redis_hash.cpp",
-        "sai_redis_hostif.cpp",
-        "sai_redis_interfacequery.cpp",
-        "sai_redis_ipmc.cpp",
-        "sai_redis_ipmc_group.cpp",
-        "sai_redis_ipsec.cpp",
-        "sai_redis_isolation_group.cpp",
-        "sai_redis_l2mc.cpp",
-        "sai_redis_l2mcgroup.cpp",
-        "sai_redis_lag.cpp",
-        "sai_redis_macsec.cpp",
-        "sai_redis_mcastfdb.cpp",
-        "sai_redis_mirror.cpp",
-        "sai_redis_mpls.cpp",
-        "sai_redis_my_mac.cpp",
-        "sai_redis_nat.cpp",
-        "sai_redis_neighbor.cpp",
-        "sai_redis_nexthop.cpp",
-        "sai_redis_nexthopgroup.cpp",
-        "sai_redis_poe.cpp",
-        "sai_redis_policer.cpp",
-        "sai_redis_port.cpp",
-        "sai_redis_qosmap.cpp",
-        "sai_redis_queue.cpp",
-        "sai_redis_route.cpp",
-        "sai_redis_router_interface.cpp",
-        "sai_redis_rpfgroup.cpp",
-        "sai_redis_samplepacket.cpp",
-        "sai_redis_scheduler.cpp",
-        "sai_redis_schedulergroup.cpp",
-        "sai_redis_srv6.cpp",
-        "sai_redis_stp.cpp",
-        "sai_redis_switch.cpp",
-        "sai_redis_system_port.cpp",
-        "sai_redis_tam.cpp",
-        "sai_redis_tunnel.cpp",
-        "sai_redis_twamp.cpp",
-        "sai_redis_udf.cpp",
-        "sai_redis_virtual_router.cpp",
-        "sai_redis_vlan.cpp",
-        "sai_redis_wred.cpp",
-    ],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    deps = [
-        ":sairedis.a",
-    ] + CODE_COVERAGE_LIBS,
+    srcs = ["//bazel/sai:redis_stub"],
+    copts = PRODUCTION_COPTS,
+    deps = [":sairedis.a"],
+    alwayslink = True,
 )
 
-cc_binary(
+sairedis_shared_library(
     name = "sairedis",
-    linkshared = 1,
-    linkstatic = 1,
-    deps = [
-        ":libsairedis",
+    consumer_deps = [":headers"] + REDIS_RUNTIME_DEPS,
+    consumer_name = "sairedis_shared",
+    soname = "libsairedis.so.0",
+    deps = [":libsairedis"],
+)
+
+multiarch_deploy_tar(
+    name = "libsairedis_runtime",
+    binaries = {
+        "usr/lib/{multiarch}/libsairedis.so.0.0.0 uid=0 gid=0 mode=0644 type=file": ":sairedis",
+    },
+    mtree = [
+        "usr/lib/{multiarch}/libsairedis.so.0 uid=0 gid=0 mode=0777 type=link link=libsairedis.so.0.0.0",
     ],
+    visibility = ["//visibility:private"],
+)
+
+flatten(
+    name = "libsairedis_pkg",
+    tars = [":libsairedis_runtime"],
+)
+
+copy_file(
+    name = "libsairedis_pkg.debug_symbols",
+    src = ":libsairedis_runtime.debug_symbols",
+    out = "libsairedis_pkg.debug_symbols.tar",
 )
 
 tar(
+    name = "libsairedis_dev_files",
+    srcs = ["sairedis.h"],
+    mtree = multiarch_mtree(
+        name = "libsairedis_dev_files",
+        contents = [
+            "usr/include/sai/sairedis.h uid=0 gid=0 mode=0644 type=file content=$(location sairedis.h)",
+            "usr/lib/{multiarch}/libsairedis.so uid=0 gid=0 mode=0777 type=link link=libsairedis.so.0",
+        ],
+        data = ["sairedis.h"],
+    ),
+)
+
+flatten(
     name = "libsairedis_dev_pkg",
-    srcs = [
-        ":sairedis",
-        ":sairedis.h",
+    tars = [
+        ":libsairedis_pkg",
+        ":libsairedis_dev_files",
     ],
-    mtree = [
-        "./lib/sairedis.h type=file contents=$(location :sairedis.h)",
-        "./usr/lib/x86_64-linux-gnu/libsairedis.so type=file contents=$(location :sairedis)",
-        "./usr/lib/x86_64-linux-gnu/libsairedis.so.0 type=link link=./usr/lib/x86_64-linux-gnu/libsairedis.so",
-    ],
+)
+
+alias(
+    name = "libsairedis_dev_pkg.debug_symbols",
+    actual = ":libsairedis_pkg.debug_symbols",
 )
 
 cc_test(
     name = "tests",
     srcs = ["tests.cpp"],
-    copts = DBGFLAGS + AM_CXXFLAGS + CXXFLAGS_COMMON,
-    deps = [":libsairedis"],
+    copts = TEST_COPTS,
+    linkopts = ["-pthread"] + CODE_COVERAGE_LINKOPTS,
+    tags = ["manual"],
+    deps = [":sairedis_shared"],
+)
+
+working_directory_test(
+    name = "tests_test",
+    program = ":tests",
+    working_directory = "lib",
 )

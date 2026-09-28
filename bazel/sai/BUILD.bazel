@@ -1,0 +1,105 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load(":defs.bzl", "sai_metadata", "sai_stub")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "generate_metadata.py",
+    "generate_stub.py",
+])
+
+sai_metadata(
+    name = "metadata",
+    srcs = ["@sai_source//:generator_inputs"],
+    header = "saimetadata.h",
+    marker = "@sai_source//:meta/parse.pl",
+    source = "saimetadata.c",
+    swig = "saiswig.i",
+    test_source = "saimetadatatest.c",
+    tool_bundle = "//bazel/tools:sai_generator_tools",
+)
+
+filegroup(
+    name = "saimetadata_c",
+    srcs = [":saimetadata.c"],
+)
+
+filegroup(
+    name = "saimetadata_h",
+    srcs = [":saimetadata.h"],
+)
+
+filegroup(
+    name = "saimetadatatest_c",
+    srcs = [":saimetadatatest.c"],
+)
+
+filegroup(
+    name = "saiswig_i",
+    srcs = [":saiswig.i"],
+)
+
+alias(
+    name = "saiattrversion_h",
+    actual = "@sai_source//:meta/saiattrversion.h",
+)
+
+alias(
+    name = "api_header_files",
+    actual = "@sai_source//:api_header_files",
+)
+
+alias(
+    name = "metadata_support_sources",
+    actual = "@sai_source//:metadata_support_sources",
+)
+
+alias(
+    name = "license",
+    actual = "@sai_source//:LICENSE.txt",
+)
+
+filegroup(
+    name = "metadata_header_files",
+    srcs = [
+        ":saimetadata_h",
+        "@sai_source//:metadata_header_files",
+    ],
+)
+
+cc_library(
+    name = "headers",
+    hdrs = [":saimetadata_h"],
+    includes = ["."],
+    deps = ["@sai_source//:headers"],
+)
+
+sai_stub(
+    name = "redis_stub",
+    srcs = ["@sai_source//:stub_inputs"],
+    out = "sai_redis.cpp",
+    class_name = "ClientServerSai",
+    marker = "@sai_source//:inc/sai.h",
+    namespace = "sairedis",
+    stub = "//:stub.pl",
+)
+
+sai_stub(
+    name = "vs_stub",
+    srcs = ["@sai_source//:stub_inputs"],
+    out = "sai_vs.cpp",
+    class_name = "Sai",
+    marker = "@sai_source//:inc/sai.h",
+    namespace = "saivs",
+    stub = "//:stub.pl",
+)
+
+sai_stub(
+    name = "proxy_stub",
+    srcs = ["@sai_source//:stub_inputs"],
+    out = "sai_proxy.cpp",
+    class_name = "Sai",
+    marker = "@sai_source//:inc/sai.h",
+    namespace = "saiproxy",
+    stub = "//:stub.pl",
+)

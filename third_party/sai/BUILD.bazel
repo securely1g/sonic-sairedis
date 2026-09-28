@@ -1,0 +1,6 @@
+exports_files([
+    "BUILD.sai.bazel",
+    "attribute_versions.json",
+    "declared_aspell.patch",
+    "saiattrversion.h",
+])
