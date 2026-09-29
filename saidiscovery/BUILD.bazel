@@ -20,10 +20,12 @@ cc_binary(
     copts = PRODUCTION_COPTS,
     linkopts = ["-pthread"] + CODE_COVERAGE_LINKOPTS,
     deps = [
-        "//:native_zlib",
-        "//:sailib",
-        "//meta:saimeta_shared",
+        # VendorSai's references must precede the selected shared SAI backend
+        # under --as-needed, matching libSyncd.a then SAILIB in Make.
         "//syncd:libsyncd",
+        "//:sailib",
+        "//:native_zlib",
+        "//meta:saimeta_shared",
         "@sonic_swss_common//:libswsscommon_shared",
     ],
 )

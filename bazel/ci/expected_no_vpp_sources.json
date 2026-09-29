@@ -1178,7 +1178,7 @@
       "proxylib/BUILD.bazel": "a5c1242da72346aa0a3909fa303a68bee73bf9869d558b55878f216f66827c46",
       "pyext/BUILD.bazel": "c8428742fd46b59f752c96313af08e0ac350e249f3188e01e533ce5a0ce57cda",
       "saiasiccmp/BUILD.bazel": "02bc050d00d8e492fb8fa20763c0bc141b0be82f65912d00ade900c0276ae031",
-      "saidiscovery/BUILD.bazel": "dc98b253458a56cae185e191baecce83d420e03fa8fc9d94d0dc0661edc37763",
+      "saidiscovery/BUILD.bazel": "7406c42d2382cdb30f6ab26f6d34df5620caceacf62f506cf84e493ca46088a2",
       "saidump/BUILD.bazel": "278a9c0a28f3fdd380b9692a165687bcfbe6f16331c57710133fb0efaf1fbc0d",
       "saiplayer/BUILD.bazel": "35184e97aed94f02c4b058edf98afb831da6511c66e1962f6ba4a06c5d842354",
       "saisdkdump/BUILD.bazel": "e2f4d3b9dcc8b7d3338dd08c1d2ec4bbfd2b3ddad76be64a978f365ee6becda1",
