@@ -1168,7 +1168,7 @@
               "symbol": "_mtree_line"
             }
           },
-          "source_reference": "//bazel/sai:saimetadata.h"
+          "source_reference": "@sai_source//:saimetadata.h"
         },
         {
           "path": "usr/include/sai/saimetadatalogger.h",

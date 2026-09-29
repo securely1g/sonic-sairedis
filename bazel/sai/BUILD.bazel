@@ -1,47 +1,40 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
-load(":defs.bzl", "sai_metadata", "sai_stub")
+load(":defs.bzl", "sai_stub")
 
 package(default_visibility = ["//visibility:public"])
 
-exports_files([
-    "generate_metadata.py",
-    "generate_stub.py",
-])
+exports_files(["generate_stub.py"])
 
-sai_metadata(
+# Reusable headers and generated metadata are owned by the SAI registry module.
+# Keep these aliases stable for the component build and package contracts.
+
+alias(
     name = "metadata",
-    srcs = ["@sai_source//:generator_inputs"],
-    header = "saimetadata.h",
-    marker = "@sai_source//:meta/parse.pl",
-    source = "saimetadata.c",
-    swig = "saiswig.i",
-    test_source = "saimetadatatest.c",
-    tool_bundle = "//bazel/tools:sai_generator_tools",
+    actual = "@sai_source//:metadata",
 )
 
-filegroup(
+alias(
     name = "saimetadata_c",
-    srcs = [":saimetadata.c"],
+    actual = "@sai_source//:saimetadata_c",
 )
 
-filegroup(
+alias(
     name = "saimetadata_h",
-    srcs = [":saimetadata.h"],
+    actual = "@sai_source//:saimetadata_h",
 )
 
-filegroup(
+alias(
     name = "saimetadatatest_c",
-    srcs = [":saimetadatatest.c"],
+    actual = "@sai_source//:saimetadatatest_c",
 )
 
-filegroup(
+alias(
     name = "saiswig_i",
-    srcs = [":saiswig.i"],
+    actual = "@sai_source//:saiswig_i",
 )
 
 alias(
     name = "saiattrversion_h",
-    actual = "@sai_source//:meta/saiattrversion.h",
+    actual = "@sai_source//:saiattrversion_h",
 )
 
 alias(
@@ -55,23 +48,18 @@ alias(
 )
 
 alias(
+    name = "metadata_header_files",
+    actual = "@sai_source//:metadata_header_files",
+)
+
+alias(
+    name = "headers",
+    actual = "@sai_source//:headers",
+)
+
+alias(
     name = "license",
     actual = "@sai_source//:LICENSE.txt",
-)
-
-filegroup(
-    name = "metadata_header_files",
-    srcs = [
-        ":saimetadata_h",
-        "@sai_source//:metadata_header_files",
-    ],
-)
-
-cc_library(
-    name = "headers",
-    hdrs = [":saimetadata_h"],
-    includes = ["."],
-    deps = ["@sai_source//:headers"],
 )
 
 sai_stub(

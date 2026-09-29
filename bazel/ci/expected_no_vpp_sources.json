@@ -832,7 +832,7 @@
     "bazel/sai/sai_proxy.cpp": "proxylib/sai_proxy.cpp",
     "bazel/sai/sai_redis.cpp": "lib/sai_redis.cpp",
     "bazel/sai/sai_vs.cpp": "vslib/sai_vs.cpp",
-    "bazel/sai/saimetadata.c": "SAI/meta/saimetadata.c",
+    "external/sai+/saimetadata.c": "SAI/meta/saimetadata.c",
     "pyext/pysairedis_wrap.cpp": "pyext/py3/pysairedis_wrap.cpp"
   },
   "make_input_drift_guard": {
@@ -1170,9 +1170,8 @@
     "pairs_encoding": "Compact UTF-8 JSON of sorted [label, normalized_source] arrays with ensure_ascii=true, comma/colon separators, and no trailing newline.",
     "reviewed_declaration_sha256": {
       "BUILD.bazel": "e83d01bf2492ea0a9593274a1188339a9fe1db6d5ee101f3fbb34ed56152a8a6",
-      "bazel/sai/BUILD.bazel": "22b6cfa8479100cb763bef7ae47144316204dc791dfba7f22b0bb793888a4a46",
-      "bazel/sai/defs.bzl": "114575a6039b15b0e0c0f349d26c8e2cfdfdbe69adfdf729b959390770ffe726",
-      "bazel/sai/generate_metadata.py": "ba12b62471dba754c9d521881dc9a31be8cb605b6c1e94c973ad8333ee0d9f13",
+      "bazel/sai/BUILD.bazel": "65b7f1f77c10e71f82a8a89e0d6a58280564d67fe16d541323d4b282318248d5",
+      "bazel/sai/defs.bzl": "8854a7989c1be27acca293d59f5726ec1365159e961adc5b712f41a2ace7f90b",
       "bazel/sai/generate_stub.py": "468dc90cab3f4de47e20ca5490757728358493dac74128b71b05e6d6a35a842d",
       "lib/BUILD.bazel": "1eecd494dc6446b4dc6f1e3532c3265f7dbc9dcb8a37932d9a4ad3b50d448547",
       "meta/BUILD.bazel": "b4b518761b8d1dfb3635b4d2c5fe0bafec7709d13343c1b12b16e798e9815e2c",
@@ -1186,7 +1185,6 @@
       "syncd/BUILD.bazel": "7b18a0bd8c3d5d680fe950e19b976eb07c36f01ab0865f69ee8966452bdfd1bc",
       "syncd/tests/BUILD.bazel": "d507b4f0b4197ee32ccd48b292b3482d5e644b5b4fe3c3a5a6bdaa8aace9abdd",
       "tests/BUILD.bazel": "c64a8da9e9885e253a3c9a401b26b317e9e1c8c522f88682923a537d81d483e1",
-      "third_party/sai/BUILD.sai.bazel": "2d702f723a8b3323bc8fd8f4782177027dd6d1032ec4df85d7edcfa5e3b9d498",
       "unittest/lib/BUILD.bazel": "c6a4d9ba6c8706b2377c7da7a9deed4e906e8f1924b6a181e23757ff007b6d6c",
       "unittest/meta/BUILD.bazel": "5d8bfbd5d63e80b26785a0714e8bc5946a09f5a7f6150e0799b8baea249cbb22",
       "unittest/proxylib/BUILD.bazel": "85e79f9534e566fc64643631fd69717f93c4e7c44c36a40ab20e145ac2c4b352",
@@ -1207,8 +1205,8 @@
     "status": "reviewed"
   },
   "pinned_sai_support_sources": {
-    "external/+_repo_rules+sai_source/meta/saimetadatautils.c": "SAI/meta/saimetadatautils.c",
-    "external/+_repo_rules+sai_source/meta/saiserialize.c": "SAI/meta/saiserialize.c"
+    "external/sai+/meta/saimetadatautils.c": "SAI/meta/saimetadatautils.c",
+    "external/sai+/meta/saiserialize.c": "SAI/meta/saiserialize.c"
   },
   "reference": {
     "artifact_kind": "Measured Make compiler-action source summary",

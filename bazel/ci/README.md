@@ -78,8 +78,11 @@ The verifier checks:
   debuglink filenames and CRCs for all 14 pairs.
 - A GDB `info line sai_api_initialize` lookup using the paired libsairedis
   symbols, without executing the target.
-- Label/output mapping, hashes, checked configuration, and declared dependency
-  pins in the artifact provenance report.
+- Label/output mapping, hashes, checked configuration, and dependency pins in
+  the artifact provenance report. Resolve SAI, Common, and build-infra's actual
+  canonical repositories, check their fetched module versions against the root
+  declarations, and retain the selected immutable registry source hashes.
+- Agreement between the SAI module's source provenance and the Make gitlink.
 
 Inherited tar defaults and differences from the Make package inventory are
 reported as observations. They are not silently rewritten as new component

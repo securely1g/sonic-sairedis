@@ -550,7 +550,7 @@ def source_snapshot(repo, output_dir):
 
 
 def declaration_provenance(repo):
-    files = [".bazelrc", "MODULE.bazel", "MODULE.bazel.lock", "third_party/tools/debian_tools.lock.json"]
+    files = [".bazelrc", "MODULE.bazel", "MODULE.bazel.lock"]
     hashes = {name: stable_file(repo / name) for name in files}
     module = (repo / "MODULE.bazel").read_text()
     dependencies = {}
@@ -559,16 +559,52 @@ def declaration_provenance(repo):
         version = re.search(r'\bversion\s*=\s*"([^"]+)"', block)
         if name and version:
             dependencies[name.group(1)] = version.group(1)
-    wanted = ("sonic-build-infra", "sonic-swss-common", "swig", "rules_python", "rules_cc", "rules_distroless", "tar.bzl")
+    wanted = ("sai", "sonic-build-infra", "sonic-swss-common", "swig", "rules_python", "rules_cc", "rules_distroless", "tar.bzl")
     require(all(name in dependencies for name in wanted), "MODULE.bazel lacks a required dependency declaration")
-    sai = re.findall(r'strip_prefix\s*=\s*"SAI-([0-9a-f]{40})"', module)
-    swss = re.findall(r'strip_prefix\s*=\s*"sonic-swss-common-([0-9a-f]{40})"', module)
-    require(len(sai) == len(swss) == 1, "MODULE.bazel archive revision declarations are ambiguous")
     return {
-        "files": hashes, "sai_archive_revision": sai[0], "swss_common_archive_revision": swss[0],
+        "files": hashes,
         "bazel_dependency_versions": {name: dependencies[name] for name in wanted},
-        "toolchain_evidence_status": "Declared dependency pins and tool-lock identities; this verifier does not query selected compile/link actions.",
     }
+
+
+def resolved_dependency_provenance(args, repo, validation, execution_root, declarations):
+    """Check actual fetched modules against declarations and registry source pins."""
+    common = ["--lockfile_mode=error"] + (["--config=" + args.bazel_config] if args.bazel_config else [])
+    targets = {
+        "sai": "@sai_source//:headers",
+        "sonic-swss-common": "@sonic_swss_common//:libswsscommon_shared",
+        "sonic-build-infra": "@sonic_build_infra//platforms:x86_64_trixie",
+    }
+    lock = json.loads((repo / "MODULE.bazel.lock").read_text())["registryFileHashes"]
+    registries = re.findall(r"--registry=(\S+)", (repo / ".bazelrc").read_text())
+    result = {}
+    for name, target in targets.items():
+        label = run_command([args.bazel, "cquery", target, *common, "--output=starlark",
+                             "--starlark:expr=str(target.label)"], repo, validation / "dependency-cquery.log").decode().strip()
+        match = re.fullmatch(r"@@([^/]+)//.+", label)
+        require(match is not None, "dependency query did not identify one canonical repository: " + name)
+        root = Path(execution_root) / "external" / match.group(1)
+        module = root / "MODULE.bazel"
+        block = re.search(r"module\((.*?)\)", module.read_text(), re.S)
+        require(block is not None, "resolved dependency lacks a module declaration: " + name)
+        selected_name = re.search(r'\bname\s*=\s*"([^"]+)"', block.group(1))
+        selected_version = re.search(r'\bversion\s*=\s*"([^"]+)"', block.group(1))
+        version = declarations["bazel_dependency_versions"][name]
+        require(selected_name is not None and selected_name.group(1) == name and
+                selected_version is not None and selected_version.group(1) == version,
+                "resolved module differs from declared dependency: " + name)
+        suffix = "/modules/" + name + "/" + version + "/source.json"
+        sources = {url: digest for url, digest in lock.items() if url.endswith(suffix) and digest != "not found" and
+                   any(url == registry.rstrip("/") + suffix for registry in registries)}
+        require(len(sources) == 1, "lockfile must identify one selected registry source: " + name)
+        result[name] = {"version": version, "canonical_repository": match.group(1),
+                        "module_file": stable_file(module), "registry_source": sources}
+        if name == "sai":
+            source_provenance = root / "SOURCE_PROVENANCE.json"
+            provenance = json.loads(source_provenance.read_text())
+            result[name]["source_provenance"] = provenance
+            result[name]["source_provenance_file"] = stable_file(source_provenance)
+    return result
 
 
 def environment_provenance(args, repo, output_dir):
@@ -822,7 +858,6 @@ def main():
         provenance["source_before"] = source_before
         declarations = declaration_provenance(repo)
         provenance["declarations"] = declarations
-        audit.check("sai_gitlink_matches_archive", source_before["sai_gitlink"] == declarations["sai_archive_revision"], actual=source_before["sai_gitlink"], expected=declarations["sai_archive_revision"])
         environment = environment_provenance(args, repo, output_dir)
         provenance["environment"] = environment
         audit.check("debian_trixie", environment["os"].get("ID") == "debian" and environment["os"].get("VERSION_CODENAME") == "trixie", actual=environment["os"])
@@ -831,6 +866,11 @@ def main():
             temporary = Path(temporary_text)
             outputs, bazel = resolve_outputs(args, repo, temporary, validation, labels, aliases, architecture, audit)
             provenance["bazel"] = bazel
+            resolved = resolved_dependency_provenance(args, repo, validation, bazel["execution_root"], declarations)
+            provenance["resolved_dependencies"] = resolved
+            sai_revision = resolved["sai"]["source_provenance"]["source_commit"]
+            audit.check("sai_gitlink_matches_registry", source_before["sai_gitlink"] == sai_revision,
+                        actual=source_before["sai_gitlink"], expected=sai_revision)
             provenance["public_outputs"] = list(outputs.values())
             provenance["debug_aliases"] = aliases
             loaded = {}
@@ -909,7 +949,9 @@ def main():
                     "schema_version": 1, "status": "passed", "verified_at": report["finished_at"],
                     "architecture": args.architecture, "github_event_revision": args.event_revision,
                     "source_snapshot": provenance["source_after"], "inputs": provenance["inputs"],
-                    "declarations": provenance["declarations"], "environment": provenance["environment"],
+                    "declarations": provenance["declarations"],
+                    "resolved_dependencies": provenance["resolved_dependencies"],
+                    "environment": provenance["environment"],
                     "bazel": provenance["bazel"], "public_outputs": provenance["public_outputs"],
                     "debug_aliases": aliases, "artifacts": copied,
                     "validation_report": {"path": "validation/package-report.json", **stable_file(report_path)},

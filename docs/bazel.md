@@ -25,20 +25,23 @@ Make workflows. The Bazel graph records external dependency inputs for vendor
 SAI, RPC, DASH SAI, and VPP; those configurations are outside the Bazel profile
 described here.
 
-The module pin selects swss-common commit
-`e2d30c70a958acbb1ddc724c96fe971eaee1c856` from
-[PR #6](https://github.com/securely1g/sonic-swss-common/pull/6). It generates
-`cfg_schema.h` from declared YANG inputs, preserving the default feature set
-used by the Make reference.
+The registry module selects swss-common commit
+`093a849f01722afb4730e685b3eb4f22a9bc9191`, including the merged
+[YANG support in PR #6](https://github.com/securely1g/sonic-swss-common/pull/6).
+It also includes the [external-consumer test fix](https://github.com/securely1g/sonic-swss-common/pull/9).
+It generates `cfg_schema.h` from declared YANG inputs, preserving the default
+feature set used by the Make reference.
 
-The infrastructure archive override selects sonic-build-infra commit
-`8851bb567ad8532f1e7d882fda8fab864d167c0c` from
-[PR #2](https://github.com/securely1g/sonic-build-infra/pull/2). Its shared GCC
-correction applies the existing `-nostdinc` option to C++ compile actions so
-they use the declared GCC and Trixie system headers. The root also retains
-PR #6's optional runtime-path feature for the private YANG execution binding.
-The archive and patch provenance and their removal conditions are recorded in
-[third_party/sonic-build-infra](../third_party/sonic-build-infra/README.md).
+The registered sonic-build-infra version
+`0.0.6-553b2f70f9ba77b74befdf77674894166139ddcc` supplies the C++ `-nostdinc`
+correction, CPU-specific hardening, and shared runtime-path behavior for native
+AMD64 and ARM64. There are no component-owned source overrides or toolchain
+patches. SAI headers, metadata generation, and its pinned execution tools come
+from the `sai` registry module, version `1.18.0-sonic.1`.
+
+The immutable registry snapshots in `.bazelrc` include the separate [Common registration](https://github.com/securely1g/sonic-bazel-registry/pull/16)
+and [SAI registration](https://github.com/securely1g/sonic-bazel-registry/pull/17). They can move to a single main-branch snapshot after both
+registry PRs merge; the source versions and archive integrity stay pinned.
 
 The optional `--@sonic_swss_common//tools/bazel:yang_modules=False` setting
 omits swss-common's decorator and default value provider implementations.
@@ -235,10 +238,12 @@ The Bazel build consumes an immutable SAI source archive matching the tracked
 stubs, and the Python wrapper as build actions. Generated files stay in Bazel's
 output tree.
 
-The attribute version header is a pinned generated input with source and tag
-provenance under `third_party/sai`. This preserves the version filtering data
-that upstream `attrversion.sh` obtains from Git history. Update that input and
-its provenance whenever the SAI pin changes.
+The SAI registry module owns the attribute-version header and its source/tag
+provenance, preserving the version filtering data that upstream `attrversion.sh`
+obtains from Git history. Its source remains
+`6dd738196ebb267be458eed0a00b687568455914`, matching the Make submodule. Update
+the module and its provenance together whenever that source changes. The
+component retains only its Redis/VS/proxy entry stubs and Python integration.
 
 ## Debian packages
 
