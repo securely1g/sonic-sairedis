@@ -579,11 +579,14 @@ def resolved_dependency_provenance(args, repo, validation, execution_root, decla
     registries = re.findall(r"--registry=(\S+)", (repo / ".bazelrc").read_text())
     result = {}
     for name, target in targets.items():
-        label = run_command([args.bazel, "cquery", target, *common, "--output=starlark",
-                             "--starlark:expr=str(target.label)"], repo, validation / "dependency-cquery.log").decode().strip()
-        match = re.fullmatch(r"@@([^/]+)//.+", label)
-        require(match is not None, "dependency query did not identify one canonical repository: " + name)
-        root = Path(execution_root) / "external" / match.group(1)
+        # The same headers can exist in both execution and target configurations.
+        # Select the target configuration before reading its canonical repo name.
+        canonical = run_command([args.bazel, "cquery", "config(" + target + ", target)", *common,
+                                 "--output=starlark", "--starlark:expr=target.label.repo_name"],
+                                repo, validation / "dependency-cquery.log").decode().strip()
+        require(re.fullmatch(r"[A-Za-z0-9._+-]+", canonical) is not None,
+                "dependency query did not identify one canonical repository: " + name)
+        root = Path(execution_root) / "external" / canonical
         module = root / "MODULE.bazel"
         block = re.search(r"module\((.*?)\)", module.read_text(), re.S)
         require(block is not None, "resolved dependency lacks a module declaration: " + name)
@@ -597,7 +600,7 @@ def resolved_dependency_provenance(args, repo, validation, execution_root, decla
         sources = {url: digest for url, digest in lock.items() if url.endswith(suffix) and digest != "not found" and
                    any(url == registry.rstrip("/") + suffix for registry in registries)}
         require(len(sources) == 1, "lockfile must identify one selected registry source: " + name)
-        result[name] = {"version": version, "canonical_repository": match.group(1),
+        result[name] = {"version": version, "canonical_repository": canonical,
                         "module_file": stable_file(module), "registry_source": sources}
         if name == "sai":
             source_provenance = root / "SOURCE_PROVENANCE.json"

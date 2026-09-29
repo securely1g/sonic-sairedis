@@ -153,7 +153,9 @@ copy_to_directory(
     ],
     out = "usr/include/sai",
     include_external_repositories = ["*"],
-    root_paths = ["**"],
+    # Both repositories put source headers in meta/. The generated registry
+    # header is already at its repository root and must keep its full basename.
+    root_paths = ["meta"],
 )
 
 multiarch_deploy_tar(

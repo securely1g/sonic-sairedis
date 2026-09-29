@@ -1174,7 +1174,7 @@
       "bazel/sai/defs.bzl": "8854a7989c1be27acca293d59f5726ec1365159e961adc5b712f41a2ace7f90b",
       "bazel/sai/generate_stub.py": "468dc90cab3f4de47e20ca5490757728358493dac74128b71b05e6d6a35a842d",
       "lib/BUILD.bazel": "1eecd494dc6446b4dc6f1e3532c3265f7dbc9dcb8a37932d9a4ad3b50d448547",
-      "meta/BUILD.bazel": "b4b518761b8d1dfb3635b4d2c5fe0bafec7709d13343c1b12b16e798e9815e2c",
+      "meta/BUILD.bazel": "dbfb58447775070135d7dc696d3896622dff2c1151bed62e26d9269192dd37d8",
       "proxylib/BUILD.bazel": "a5c1242da72346aa0a3909fa303a68bee73bf9869d558b55878f216f66827c46",
       "pyext/BUILD.bazel": "c8428742fd46b59f752c96313af08e0ac350e249f3188e01e533ce5a0ce57cda",
       "saiasiccmp/BUILD.bazel": "02bc050d00d8e492fb8fa20763c0bc141b0be82f65912d00ade900c0276ae031",
