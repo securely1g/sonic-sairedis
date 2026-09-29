@@ -174,12 +174,17 @@ parity requires separate validation.
 
 ## Runtime lookup
 
-The standalone `.bazelrc` enables ELF `RUNPATH` so `LD_LIBRARY_PATH` can select
-matching Bazel libraries during local execution. Consumer checks must verify
-that the loaded sairedis component, swss-common, libyang, and libxxhash libraries
-match the selected build inputs. The pinned toolchain still contributes absolute
-runtime paths. Downstream Bazel roots use their own `.bazelrc`, so deployed
-package lookup and downstream runtime closure require their own validation.
+The standalone `.bazelrc` enables ELF `RUNPATH`. Each component test launcher
+sets `LD_LIBRARY_PATH` to the shared-library directories in that test's declared
+Bazel runfiles, replacing any inherited value. This also resolves indirect
+dependencies such as ZeroMQ's libsodium dependency: ELF `RUNPATH` alone is not
+transitive, and imported component DSOs no longer occupy their original build
+directories. The tests exercise the raw linked outputs without installing
+component libraries on the runner or scanning host library directories.
+
+Downstream Bazel roots use their own `.bazelrc` and launchers. Deployed package
+lookup and a complete installed SONiC runtime require their own validation;
+these component tests do not establish that an installed image boots.
 
 ## Continuous integration
 

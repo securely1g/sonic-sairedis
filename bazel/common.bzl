@@ -227,21 +227,31 @@ def multiarch_mtree(name, contents, data):
     return select(choices, no_match_error = "sairedis Bazel packages currently support x86_64 and aarch64 targets")
 
 def _working_directory_test_impl(ctx):
+    runfiles = ctx.runfiles(files = [ctx.executable.program] + ctx.files.data)
+    runfiles = runfiles.merge(ctx.attr.program[DefaultInfo].default_runfiles)
+    for target in ctx.attr.data:
+        runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
+
+    # Imported DSOs retain paths relative to their original build location, and
+    # ELF RUNPATH is not transitive. Use this test's declared runtime closure
+    # for both direct and indirect dependencies, independent of host packages.
+    library_dirs = sorted(depset([
+        file.short_path.rsplit("/", 1)[0]
+        for file in runfiles.files.to_list()
+        if file.basename.endswith(".so") or ".so." in file.basename
+    ]).to_list())
     script = ctx.actions.declare_file(ctx.label.name + ".sh")
     ctx.actions.write(
         output = script,
         content = """#!/bin/bash
 set -euo pipefail
 runfiles_root="${TEST_SRCDIR}/${TEST_WORKSPACE}"
+export LD_LIBRARY_PATH="%s"
 cd "${runfiles_root}/%s"
 exec "${runfiles_root}/%s" "$@"
-""" % (ctx.attr.working_directory, ctx.executable.program.short_path),
+""" % (":".join(["${runfiles_root}/" + path for path in library_dirs]), ctx.attr.working_directory, ctx.executable.program.short_path),
         is_executable = True,
     )
-    runfiles = ctx.runfiles(files = [ctx.executable.program] + ctx.files.data)
-    runfiles = runfiles.merge(ctx.attr.program[DefaultInfo].default_runfiles)
-    for target in ctx.attr.data:
-        runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
     return [DefaultInfo(executable = script, runfiles = runfiles)]
 
 working_directory_test = rule(

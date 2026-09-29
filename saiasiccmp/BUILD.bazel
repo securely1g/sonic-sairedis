@@ -1,7 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//bazel:common.bzl", "CODE_COVERAGE_LINKOPTS", "PRODUCTION_COPTS")
+load("//bazel:common.bzl", "CODE_COVERAGE_LINKOPTS", "PRODUCTION_COPTS", "working_directory_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -54,19 +53,14 @@ cc_binary(
     ],
 )
 
-sh_test(
+working_directory_test(
     name = "tests",
-    srcs = ["test.sh"],
-    args = [
-        "$(rlocationpath :saiasiccmp)",
-        "$(rlocationpath dump1.json)",
-        "$(rlocationpath dump2.json)",
-        "$(rlocationpath dump3.json)",
-    ],
     data = [
         "dump1.json",
         "dump2.json",
         "dump3.json",
         ":saiasiccmp",
     ],
+    program = "test.sh",
+    working_directory = "saiasiccmp",
 )
