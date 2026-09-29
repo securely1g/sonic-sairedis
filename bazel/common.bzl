@@ -240,6 +240,10 @@ def _working_directory_test_impl(ctx):
         for file in runfiles.files.to_list()
         if file.basename.endswith(".so") or ".so." in file.basename
     ]).to_list())
+
+    # short_path is rooted at the main runfiles directory, while the requested
+    # working directory belongs to the repository that declares this test.
+    repository_prefix = "../" + ctx.label.repo_name + "/" if ctx.label.repo_name else ""
     script = ctx.actions.declare_file(ctx.label.name + ".sh")
     ctx.actions.write(
         output = script,
@@ -249,7 +253,7 @@ runfiles_root="${TEST_SRCDIR}/${TEST_WORKSPACE}"
 export LD_LIBRARY_PATH="%s"
 cd "${runfiles_root}/%s"
 exec "${runfiles_root}/%s" "$@"
-""" % (":".join(["${runfiles_root}/" + path for path in library_dirs]), ctx.attr.working_directory, ctx.executable.program.short_path),
+""" % (":".join(["${runfiles_root}/" + path for path in library_dirs]), repository_prefix + ctx.attr.working_directory, ctx.executable.program.short_path),
         is_executable = True,
     )
     return [DefaultInfo(executable = script, runfiles = runfiles)]
