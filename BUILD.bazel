@@ -311,10 +311,12 @@ filegroup(
     srcs = glob([
         "*.ac",
         "*.am",
-        "*.h",
         "*.pl",
         "*.sh",
-    ]) + [
+    ]) + glob(
+        ["*.h"],
+        allow_empty = True,
+    ) + [
         "//bazel:stamp_vars.sh",
         "//lib:source_files",
         "//meta:source_files",
