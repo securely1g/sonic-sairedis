@@ -26,22 +26,26 @@ SAI, RPC, DASH SAI, and VPP; those configurations are outside the Bazel profile
 described here.
 
 The registry module selects swss-common commit
-`093a849f01722afb4730e685b3eb4f22a9bc9191`, including the merged
+`5ee19a9375e667c0d507239927745de8fa29be07`, including the merged
 [YANG support in PR #6](https://github.com/securely1g/sonic-swss-common/pull/6).
 It also includes the [external-consumer test fix](https://github.com/securely1g/sonic-swss-common/pull/9).
 It generates `cfg_schema.h` from declared YANG inputs, preserving the default
 feature set used by the Make reference.
 
 The registered sonic-build-infra version
-`0.0.6-553b2f70f9ba77b74befdf77674894166139ddcc` supplies the C++ `-nostdinc`
-correction, CPU-specific hardening, and shared runtime-path behavior for native
+`0.0.13-ff408bafc35ce0e3d7a0bd27803debdc2a921de6` supplies declared Aspell and
+Doxygen launchers, the C++ `-nostdinc` correction, CPU-specific hardening, and shared runtime-path behavior for native
 AMD64 and ARM64. There are no component-owned source overrides or toolchain
 patches. SAI headers, metadata generation, and its pinned execution tools come
 from the `sai` registry module, version `1.18.0-sonic.1`.
 
-The immutable registry snapshots in `.bazelrc` include the separate [Common registration](https://github.com/securely1g/sonic-bazel-registry/pull/16)
-and [SAI registration](https://github.com/securely1g/sonic-bazel-registry/pull/17). They can move to a single main-branch snapshot after both
-registry PRs merge; the source versions and archive integrity stay pinned.
+The immutable main-branch registry snapshot in `.bazelrc` includes merged
+[Common registration](https://github.com/securely1g/sonic-bazel-registry/pull/16),
+[SAI registration](https://github.com/securely1g/sonic-bazel-registry/pull/17),
+and [shared launcher registration](https://github.com/securely1g/sonic-bazel-registry/pull/27).
+Common's selected merge commit has the same source tree as the prior snapshot;
+SAI retains its API source and generated-output baselines. Source revisions and
+archive integrity remain pinned while SAI uses the shared declared execution tools.
 
 The optional `--@sonic_swss_common//tools/bazel:yang_modules=False` setting
 omits swss-common's decorator and default value provider implementations.
