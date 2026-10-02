@@ -1,3 +1,23 @@
+common --check_direct_dependencies=off
+common --noincompatible_disallow_empty_glob
+
+# Resolve SONiC modules from an immutable registry revision, then the BCR.
+common --registry=https://raw.githubusercontent.com/securely1g/sonic-bazel-registry/c948405e2c4a1678fc516d5a3141b2a35cca1b6a
+common --registry=https://raw.githubusercontent.com/securely1g/sonic-bazel-registry/52da7271754f9837db0d0fae5460456642c29407
+common --registry=https://bcr.bazel.build/
+
+# These toolchains are native and require matching Trixie execution userspace.
+# Select the pinned compiler for execution tools as well as target binaries.
+# Launch Bazel in Trixie; --host_platform declares that execution environment.
+# Bookworm and ARMHF require additional shared toolchains.
+common --platforms=@sonic_build_infra//platforms:x86_64_trixie
+common --host_platform=@sonic_build_infra//platforms:x86_64_trixie
+common:aarch64 --platforms=@sonic_build_infra//platforms:aarch64_trixie
+common:aarch64 --host_platform=@sonic_build_infra//platforms:aarch64_trixie
+
+# Allow LD_LIBRARY_PATH to select the matching Bazel DSOs in standalone runs.
+build --linkopt=-Wl,--enable-new-dtags
+
 build:stamp --stamp
-build:stamp --workspace_status_command="/home/blorente/code/github.com/sonic-net/sonic-sairedis/stamp_vars.sh"
+build:stamp --workspace_status_command=bazel/stamp_vars.sh
 build --config=stamp

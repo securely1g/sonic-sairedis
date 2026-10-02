@@ -1,15 +1,31 @@
-load("//bazel:common.bzl", "CFLAGS_ASAN", "CODE_COVERAGE_CFLAGS", "CODE_COVERAGE_CPPFLAGS", "CODE_COVERAGE_CXXFLAGS", "CODE_COVERAGE_LIBS", "CXXFLAGS_COMMON", "DBGFLAGS")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("//bazel:common.bzl", "CODE_COVERAGE_LINKOPTS", "PRODUCTION_COPTS")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "source_files",
+    srcs = glob([
+        "*.cpp",
+        "*.h",
+        "*.am",
+        "*.sh",
+        "*.json",
+    ]),
+)
 
 cc_binary(
     name = "saidiscovery",
     srcs = ["saidiscovery.cpp"],
-    copts = DBGFLAGS + CXXFLAGS_COMMON + CODE_COVERAGE_CXXFLAGS,
-    cxxopts = CODE_COVERAGE_CPPFLAGS,
-    visibility = ["//syncd:__subpackages__"],
+    copts = PRODUCTION_COPTS,
+    linkopts = ["-pthread"] + CODE_COVERAGE_LINKOPTS,
     deps = [
-        "//:sailib",
-        "//lib:libsairedis",
-        "//meta:libsaimeta",
+        # VendorSai's references must precede the selected shared SAI backend
+        # under --as-needed, matching libSyncd.a then SAILIB in Make.
         "//syncd:libsyncd",
+        "//:sailib",
+        "//:native_zlib",
+        "//meta:saimeta_shared",
+        "@sonic_swss_common//:libswsscommon_shared",
     ],
 )

@@ -1,83 +1,45 @@
-module(name = "sonic-sairedis")
+# Keep bazel_compatibility in sync with sonic-buildimage's .bazelversion.
+module(
+    name = "sonic-sairedis",
+    version = "0.0.0",
+    bazel_compatibility = [
+        ">=8.5.1",
+        "<=8.5.1",
+    ],
+)
 
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.3", dev_dependency = True)
 
-bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "bazel_lib", version = "3.1.1")
-bazel_dep(name = "bazel_skylib", version = "1.8.2")
-bazel_dep(name = "tar.bzl", version = "0.8.1")
-bazel_dep(name = "sonic-build-infra", version = "0.0.0", repo_name = "sonic_build_infra")
-local_path_override(
-    module_name = "sonic-build-infra",
-    path = "../sonic-build-infra",
-)
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "googletest", version = "1.16.0", repo_name = "com_google_googletest")
+bazel_dep(name = "libnl3", version = "3.7.0.sonic-buildimage")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.16")
+bazel_dep(name = "rules_distroless", version = "0.9.4")
+bazel_dep(name = "rules_perl", version = "1.1.2")
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "swig", version = "4.3.0.bcr.2")
+bazel_dep(name = "tar.bzl", version = "0.10.5")
+bazel_dep(name = "sonic-build-infra", version = "0.0.6-553b2f70f9ba77b74befdf77674894166139ddcc", repo_name = "sonic_build_infra")
+bazel_dep(name = "sonic-swss-common", version = "0.0.0-093a849f01722afb4730e685b3eb4f22a9bc9191", repo_name = "sonic_swss_common")
+bazel_dep(name = "sai", version = "1.18.0-sonic.1", repo_name = "sai_source")
 
-register_toolchains("@sonic_build_infra//toolchains/gcc:host_gcc_toolchain")
+gcc = use_extension("@sonic_build_infra//toolchains/gcc:extensions.bzl", "gcc")
+use_repo(gcc, "gcc_toolchains")
 
-bazel_dep(name = "rules_distroless", version = "0.0.0")
-local_path_override(
-    module_name = "rules_distroless",
-    path = "../rules_distroless",
-)
+register_toolchains("@gcc_toolchains//:all")
 
-http_archive(
-    name = "com_google_googletest",
-    sha256 = "78c676fc63881529bf97bf9d45948d905a66833fbfa5318ea2cd7478cb98f399",
-    strip_prefix = "googletest-1.16.0",
-    urls = ["https://github.com/google/googletest/releases/download/v1.16.0/googletest-1.16.0.tar.gz"],
-)
-
+# Native libraries and headers use the shared, pinned Trixie dependency set.
 apt = use_extension("@rules_distroless//apt:extensions.bzl", "apt")
-apt.sources_list(
-    architectures = ["amd64"],
-    components = ["main"],
-    suites = [
-        "bookworm",
-        "bookworm-updates",
-    ],
-    uris = ["https://snapshot.debian.org/archive/debian/20251001T023456Z"],
-)
-apt.sources_list(
-    architectures = ["amd64"],
-    components = ["main"],
-    suites = ["bookworm-security"],
-    uris = ["https://snapshot.debian.org/archive/debian-security/20251001T023456Z"],
-)
-
-bazel_dep(name = "sonic-swss-common", version = "0.0.0", repo_name = "sonic_swss_common")
-local_path_override(
-    module_name = "sonic-swss-common",
-    path = "../sonic-swss-common",
-)
-
-bazel_dep(name = "sai", version = "0.0.0")
-local_path_override(
-    module_name = "sai",
-    path = "./SAI",
-)
-
 apt.install(
-    dependency_set = "bookworm",
-    packages = [
-        # For this repo
-        "libhiredis-dev",
-        "libzmq3-dev",
-        "python3-dev",
-        "libboost-dev",
-        "libboost-serialization-dev",
-        "nlohmann-json3-dev",
-        # For rpcserver
-        "libthrift-dev",
-        # For dashsai
-        "libprotobuf-dev",
-        "libgrpc-dev",
-        "libgrpc++-dev",
-    ],
+    dependency_set = "trixie",
+    packages = ["zlib1g-dev"],
     suites = [
-        "bookworm",
-        "bookworm-updates",
+        "trixie",
+        "trixie-updates",
+        "trixie-security",
     ],
 )
-apt.lock(into = ":packages.lock")
-use_repo(apt, "bookworm")
+use_repo(apt, "trixie")
