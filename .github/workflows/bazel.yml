@@ -77,6 +77,12 @@ jobs:
           git check-ignore --quiet MODULE.bazel.lock
           git diff --exit-code HEAD --
 
+      - name: Select reviewed Debian package prerequisites
+        run: python3 bazel/ci/prepare_debian_registry.py
+
+      - name: Test source provenance checks
+        run: python3 -m unittest discover -s tools/bazel/tests -p 'test_*.py'
+
       - name: Check Bazel formatting
         run: >-
           bazel run ${{ matrix.bazel_args }}
@@ -144,7 +150,35 @@ jobs:
             --image '${{ matrix.image }}' \
             --targets bazel/ci/required-targets.json \
             --contract bazel/ci/package-contract.json \
-            --output-dir artifacts
+            --output-dir artifacts \
+            --effective-bazelrc artifacts/validation/debian-registry/effective.bazelrc
+
+      - name: Build and check source-produced Debian packages
+        run: |
+          bazel build ${{ matrix.bazel_args }} --jobs=4 --lockfile_mode=update \
+            //debian:libsaimetadata_check //debian:libsairedis_check \
+            //debian:libsaivs_check //debian:syncd_vs_check \
+            //debian:libsaimetadata_deb //debian:libsairedis_deb \
+            //debian:libsaivs_deb //debian:syncd_vs_deb \
+            @sonic_swss_common//debian:libswsscommon_deb @libyang//:libyang3_deb \
+            @libnl3//:libnl_3_deb @libnl3//:libnl_route_3_deb \
+            @libnl3//:libnl_genl_3_deb @libnl3//:libnl_nf_3_deb \
+            2>&1 | tee artifacts/validation/debian-build.log
+          mkdir -p artifacts/debian
+          for target in //debian:libsaimetadata_deb //debian:libsairedis_deb \
+              //debian:libsaivs_deb //debian:syncd_vs_deb \
+              @sonic_swss_common//debian:libswsscommon_deb @libyang//:libyang3_deb \
+              @libnl3//:libnl_3_deb @libnl3//:libnl_route_3_deb \
+              @libnl3//:libnl_genl_3_deb @libnl3//:libnl_nf_3_deb; do
+            package=$(bazel cquery ${{ matrix.bazel_args }} --lockfile_mode=update "$target" --output=files)
+            test -f "$package"
+            cp "$package" artifacts/debian/
+          done
+
+      - name: Install and remove the actual Debian packages
+        env:
+          SONIC_DEB_TEST_CONTAINER: 1
+        run: bash bazel/ci/check_debian_install.sh artifacts/debian
 
       - name: Retain available dependency resolution on failure
         if: failure()
@@ -168,6 +202,7 @@ jobs:
           name: sonic-sairedis-bazel-trixie-${{ matrix.arch }}-${{ github.sha }}
           path: |
             artifacts/packages/
+            artifacts/debian/
             artifacts/provenance.json
             artifacts/validation/dependencies/
           if-no-files-found: error

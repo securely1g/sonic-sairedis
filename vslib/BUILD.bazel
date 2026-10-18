@@ -302,3 +302,8 @@ alias(
     name = "libsaivs_dev_pkg.debug_symbols",
     actual = ":libsaivs_pkg.debug_symbols",
 )
+
+alias(
+    name = "libsaivs_deb",
+    actual = "//debian:libsaivs_deb",
+)

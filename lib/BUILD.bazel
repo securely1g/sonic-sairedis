@@ -166,3 +166,8 @@ working_directory_test(
     program = ":tests",
     working_directory = "lib",
 )
+
+alias(
+    name = "libsairedis_deb",
+    actual = "//debian:libsairedis_deb",
+)

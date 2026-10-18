@@ -1,7 +1,7 @@
 # Keep bazel_compatibility in sync with sonic-buildimage's .bazelversion.
 module(
     name = "sonic-sairedis",
-    version = "0.0.1",
+    version = "0.0.2",
     bazel_compatibility = [
         ">=8.5.1",
         "<=8.5.1",
@@ -10,19 +10,22 @@ module(
 
 bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.3", dev_dependency = True)
 
+# Native CI installs Common's matching source-built libyang runtime DEB.
+bazel_dep(name = "libyang", version = "3.12.2.sonic.2", dev_dependency = True)
+
 bazel_dep(name = "bazel_lib", version = "3.1.1")
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "googletest", version = "1.16.0", repo_name = "com_google_googletest")
-bazel_dep(name = "libnl3", version = "3.7.0.sonic-buildimage")
+bazel_dep(name = "libnl3", version = "3.7.0.sonic.4")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
-bazel_dep(name = "rules_distroless", version = "0.9.4")
+bazel_dep(name = "rules_distroless", version = "0.9.4.sonic.5")
 bazel_dep(name = "rules_perl", version = "1.1.2")
 bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "swig", version = "4.3.0.bcr.2")
-bazel_dep(name = "tar.bzl", version = "0.10.5")
-bazel_dep(name = "sonic-build-infra", version = "0.0.13-ff408bafc35ce0e3d7a0bd27803debdc2a921de6", repo_name = "sonic_build_infra")
+bazel_dep(name = "tar.bzl", version = "0.10.5-sonic.1")
+bazel_dep(name = "sonic-build-infra", version = "0.0.16-7339c0da8283fdc43dc90feb48136c9b574ee3e7", repo_name = "sonic_build_infra")
 bazel_dep(name = "sonic-swss-common", version = "0.0.0-5ee19a9375e667c0d507239927745de8fa29be07", repo_name = "sonic_swss_common")
 bazel_dep(name = "sai", version = "1.18.0-sonic.1", repo_name = "sai_source")
 
@@ -43,3 +46,69 @@ apt.install(
     ],
 )
 use_repo(apt, "trixie")
+
+# The source producer remains Draft until Common's real package metadata lands.
+git_override(
+    module_name = "sonic-swss-common",
+    commit = "e4db486d14b726af21ad14a85334a60add07ec22",
+    remote = "https://github.com/securely1g/sonic-swss-common.git",
+)
+
+apt.install(
+    dependency_set = "sairedis_package_deps",
+    packages = [
+        "libboost-filesystem1.83.0",
+        "libboost-serialization1.83.0",
+        "libc6",
+        "libgcc-s1",
+        "libhiredis1.1.0",
+        "libstdc++6",
+        "libzmq5",
+        "zlib1g",
+    ],
+    suites = [
+        "trixie",
+        "trixie-updates",
+        "trixie-security",
+    ],
+)
+use_repo(apt, "sairedis_package_deps")
+
+bsdtar = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
+use_repo(bsdtar, "bsd_tar_toolchains")
+
+bazel_dep(name = "rules_rs", version = "0.1.0")
+
+rules_rust = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+use_repo(rules_rust, "rules_rust")
+
+rust = use_extension("@rules_rs//rs:rules_rust_reexported_extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2021",
+    extra_target_triples = [
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+    ],
+    versions = ["1.90.0"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+# Keep the SONiC tar timestamp feature when stock releases sort higher.
+single_version_override(
+    module_name = "tar.bzl",
+    version = "0.10.5-sonic.1",
+)
+
+# Later rules_cc releases require a toolchain API absent in Bazel 8.5.1.
+single_version_override(
+    module_name = "rules_cc",
+    version = "0.2.20",
+)
+
+# Keep the reviewed package tools selected across older source dependencies.
+single_version_override(
+    module_name = "sonic-build-infra",
+    version = "0.0.16-7339c0da8283fdc43dc90feb48136c9b574ee3e7",
+)

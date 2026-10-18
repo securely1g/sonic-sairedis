@@ -146,3 +146,7 @@ pyext/pysairedis.py
 #########
 bazel-*
 /MODULE.bazel.lock
+
+# Local Python validation output.
+__pycache__/
+*.pyc

@@ -1,0 +1,90 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@sonic_build_infra//deb:metadata.bzl", "debian_library")
+load(":packages.bzl", "sairedis_debian_package")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "control",
+    "changelog",
+    "syncd-vs.init",
+])
+
+filegroup(
+    name = "source_metadata",
+    srcs = glob([
+        "*.install",
+        "*.dirs",
+        "*.init",
+    ]) + [
+        "changelog",
+        "compat",
+        "control",
+    ],
+)
+
+py_binary(
+    name = "stage",
+    srcs = ["stage.py"],
+)
+
+_FOREIGN = [
+    "libc6",
+    "libgcc-s1",
+    "libstdc++6",
+    "libhiredis1.1.0",
+    "libzmq5",
+    "zlib1g",
+    "libboost-serialization1.83.0",
+    "libboost-filesystem1.83.0",
+]
+
+[debian_library(
+    name = name + "_metadata",
+    control_tar = "@sairedis_package_deps//" + name + ":control",
+    data = "@sairedis_package_deps//" + name + ":data",
+) for name in _FOREIGN]
+
+_DEPS = [":" + name + "_metadata" for name in _FOREIGN] + [
+    "@sonic_swss_common//debian:libswsscommon_metadata",
+    "@libnl3//:libnl_3_debian_metadata",
+    "@libnl3//:libnl_route_3_debian_metadata",
+    "@libnl3//:libnl_genl_3_debian_metadata",
+    "@libnl3//:libnl_nf_3_debian_metadata",
+]
+
+sairedis_debian_package(
+    name = "libsaimetadata",
+    package_name = "libsaimetadata",
+    dependencies = _DEPS,
+    runtime = "//meta:libsaimetadata_pkg",
+)
+
+sairedis_debian_package(
+    name = "libsairedis",
+    package_name = "libsairedis",
+    dependencies = _DEPS + [":libsaimetadata_metadata"],
+    runtime = "//lib:libsairedis_pkg",
+)
+
+sairedis_debian_package(
+    name = "libsaivs",
+    package_name = "libsaivs",
+    dependencies = _DEPS + [":libsaimetadata_metadata"],
+    runtime = "//vslib:libsaivs_pkg",
+)
+
+sairedis_debian_package(
+    name = "syncd_vs",
+    package_name = "syncd-vs",
+    dependencies = _DEPS + [
+        ":libsaimetadata_metadata",
+        ":libsairedis_metadata",
+        ":libsaivs_metadata",
+    ] + select({
+        "//:dashsai_vs_enabled": ["//:dash_sai_debian_metadata"],
+        "//conditions:default": [],
+    }),
+    init = True,
+    runtime = "//syncd:syncd_pkg",
+)

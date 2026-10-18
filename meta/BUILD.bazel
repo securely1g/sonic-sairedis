@@ -213,3 +213,8 @@ alias(
     name = "libsaimetadata_dev_pkg.debug_symbols",
     actual = ":libsaimetadata_pkg.debug_symbols",
 )
+
+alias(
+    name = "libsaimetadata_deb",
+    actual = "//debian:libsaimetadata_deb",
+)

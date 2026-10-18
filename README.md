@@ -135,3 +135,37 @@ For example:
 * Push your changes to your private fork and do "pull-request" to this repository
 * Use a pull request to do code review
 * Use issues to keep track of what is going on
+
+## Installable Bazel Debian packages
+
+The existing runtime and debug TAR targets remain available. The following
+additional targets package the same compiled runtime files with the source
+Debian metadata, so APT can configure, reinstall, remove and purge them:
+
+```bash
+bazel build //debian:libsaimetadata_deb //debian:libsairedis_deb \
+  //debian:libsaivs_deb //debian:syncd_vs_deb
+```
+
+`dh_install` applies the original `.install` manifests. Debian's own helpers
+produce library metadata, cache triggers, the Syncd init-service scripts and its
+configuration-file list. Library dependencies come from the actual linked ELF
+files and the declared dependency packages. Syncd retains the original helper's
+`misc:Pre-Depends`, including its `init-system-helpers` requirement.
+
+Each `//debian:<name>_metadata` target also exposes its actual runtime files and
+generated symbols to downstream package builders. A DASH-enabled Syncd consumer
+must supply `//:dash_sai_debian_metadata` alongside its existing DASH library
+selection, using metadata from those actual SDK packages.
+
+Native AMD64 and ARM64 CI builds and inspects the four archives, installs their
+real source-built dependencies, checks dynamic-library resolution, and exercises
+reinstall, conffile preservation, removal and purge in disposable Debian
+containers. Hardware services are disabled through Debian's normal `policy-rc.d`
+mechanism during the package test. The full existing source tests and debug-TAR
+checks remain enabled.
+
+During review, CI selects the recorded Draft registry prerequisites through
+`bazel/ci/prepare_debian_registry.py`; `.bazelrc` continues to use the maintained
+`main` registry. The Draft source and registry prerequisites must merge before
+this PR is ready.

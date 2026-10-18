@@ -2,6 +2,7 @@
 """Verify already-built sairedis tar outputs and detached debug symbols."""
 
 import argparse
+import ast
 from collections import defaultdict
 from datetime import datetime, timezone
 import hashlib
@@ -567,6 +568,39 @@ def declaration_provenance(repo):
     }
 
 
+def declared_git_sources(module):
+    """Record exact source overrides; moving refs and patched trees need review."""
+    result = {}
+    for statement in ast.parse(module).body:
+        if not (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+                and isinstance(statement.value.func, ast.Name)
+                and statement.value.func.id == "git_override"):
+            continue
+        call = statement.value
+        require(not call.args, "git_override must use named arguments")
+        values = {item.arg: ast.literal_eval(item.value) for item in call.keywords}
+        require(set(values) == {"module_name", "remote", "commit"} and
+                all(isinstance(value, str) for value in values.values()),
+                "source provenance supports only an unpatched Git commit override")
+        require(re.fullmatch(r"[0-9a-f]{40}", values["commit"]) is not None,
+                "git_override must pin a full commit SHA")
+        require(values["remote"].startswith("https://"), "git_override must identify its HTTPS source")
+        name = values.pop("module_name")
+        require(name not in result, "duplicate git_override: " + name)
+        result[name] = values
+    return result
+
+
+def selected_registry_source(lock, registries, name, version):
+    suffix = "/modules/" + name + "/" + version + "/source.json"
+    sources = {url: digest for url, digest in lock.items() if url.endswith(suffix) and digest != "not found" and
+               any(url == registry.rstrip("/") + suffix for registry in registries)}
+    require(len(sources) == 1, "lockfile must identify one selected registry source: " + name)
+    require(all(re.fullmatch(r"[0-9a-f]{64}", digest) for digest in sources.values()),
+            "registry source must have a SHA256 digest: " + name)
+    return sources
+
+
 def resolved_dependency_provenance(args, repo, validation, execution_root, declarations):
     """Check actual fetched modules against declarations and registry source pins."""
     common = ["--lockfile_mode=update"] + (["--config=" + args.bazel_config] if args.bazel_config else [])
@@ -575,7 +609,9 @@ def resolved_dependency_provenance(args, repo, validation, execution_root, decla
         "sonic-swss-common": "@sonic_swss_common//:libswsscommon_shared",
         "sonic-build-infra": "@sonic_build_infra//platforms:x86_64_trixie",
     }
-    registries = re.findall(r"--registry=(\S+)", (repo / ".bazelrc").read_text())
+    rc = args.effective_bazelrc or repo / ".bazelrc"
+    registries = re.findall(r"--registry=(\S+)", rc.read_text())
+    git_sources = declared_git_sources((repo / "MODULE.bazel").read_text())
     result = {}
     for name, target in targets.items():
         # The same headers can exist in both execution and target configurations.
@@ -592,16 +628,19 @@ def resolved_dependency_provenance(args, repo, validation, execution_root, decla
         selected_name = re.search(r'\bname\s*=\s*"([^"]+)"', block.group(1))
         selected_version = re.search(r'\bversion\s*=\s*"([^"]+)"', block.group(1))
         version = declarations["bazel_dependency_versions"][name]
-        require(selected_name is not None and selected_name.group(1) == name and
-                selected_version is not None and selected_version.group(1) == version,
+        require(selected_name is not None and selected_name.group(1) == name and selected_version is not None,
                 "resolved module differs from declared dependency: " + name)
-        suffix = "/modules/" + name + "/" + version + "/source.json"
-        lock = json.loads((repo / "MODULE.bazel.lock").read_text())["registryFileHashes"]
-        sources = {url: digest for url, digest in lock.items() if url.endswith(suffix) and digest != "not found" and
-                   any(url == registry.rstrip("/") + suffix for registry in registries)}
-        require(len(sources) == 1, "lockfile must identify one selected registry source: " + name)
-        result[name] = {"version": version, "canonical_repository": canonical,
-                        "module_file": stable_file(module), "registry_source": sources}
+        result[name] = {"version": selected_version.group(1), "declared_version": version,
+                        "canonical_repository": canonical, "module_file": stable_file(module)}
+        if name in git_sources:
+            # Bazel fetches this exact commit instead of the registered version.
+            # A Git override's MODULE version is not a registry source identifier.
+            result[name]["git_source"] = git_sources[name]
+        else:
+            require(selected_version.group(1) == version,
+                    "resolved module differs from declared dependency: " + name)
+            lock = json.loads((repo / "MODULE.bazel.lock").read_text())["registryFileHashes"]
+            result[name]["registry_source"] = selected_registry_source(lock, registries, name, version)
         if name == "sai":
             source_provenance = root / "SOURCE_PROVENANCE.json"
             provenance = json.loads(source_provenance.read_text())
@@ -868,6 +907,7 @@ def main():
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--bazel", default="bazel", help="Bazel executable path, including a local startup wrapper when needed")
+    parser.add_argument("--effective-bazelrc", type=Path, help="RC used by the Bazel startup wrapper; defaults to the tracked .bazelrc")
     parser.add_argument("--gdb", default="gdb")
     parser.add_argument("--host-packages", type=Path)
     parser.add_argument("--event-revision", default=os.environ.get("GITHUB_SHA"))
@@ -899,6 +939,8 @@ def main():
             "required_targets": {"path": str(targets_path), **stable_file(targets_path)},
             "verifier": {"path": str(Path(__file__).resolve()), **stable_file(Path(__file__).resolve())},
         }
+        effective_rc = (args.effective_bazelrc or repo / ".bazelrc").resolve()
+        provenance["inputs"]["effective_bazelrc"] = {"path": str(effective_rc), **stable_file(effective_rc)}
         source_before = source_snapshot(repo, output_dir)
         provenance["source_before"] = source_before
         audit.check("tracked_source_clean", source_before["tracked_diff"]["size"] == 0)

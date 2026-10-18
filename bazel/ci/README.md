@@ -105,7 +105,11 @@ The verifier checks:
 - Label/output mapping, hashes, checked configuration, and dependency pins in
   the artifact provenance report. Resolve SAI, Common, and build-infra's actual
   canonical repositories, check their fetched module versions against the root
-  declarations, and retain the selected registry source hashes.
+  declarations, and retain the selected registry source hashes. When CI selects
+  reviewed Draft prerequisites, pass its generated RC with `--effective-bazelrc`;
+  the report hashes that file and checks that it remains unchanged. Exact Git
+  overrides are recorded as their source URL and full commit SHA alongside the
+  fetched module version, rather than being treated as registry releases.
 - Agreement between the SAI module's source provenance and the Make gitlink.
 
 Inherited tar defaults and differences from the Make package inventory are

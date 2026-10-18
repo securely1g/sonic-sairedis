@@ -7,7 +7,6 @@ package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "stub.pl",
-    "debian/syncd-vs.init",
 ])
 
 # The optional Bazel path initially builds VS with Python 3 and no VPP.
@@ -332,4 +331,11 @@ filegroup(
         "//unittest:source_files",
         "//vslib:source_files",
     ],
+)
+
+# Selected only for a DASH-enabled Debian package. The caller supplies original
+# metadata for the same retained SDK libraries selected by :dash_sai.
+label_flag(
+    name = "dash_sai_debian_metadata",
+    build_setting_default = ":missing_dash_sai",
 )
