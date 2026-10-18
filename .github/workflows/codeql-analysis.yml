@@ -75,8 +75,9 @@ jobs:
       name: Build sonic-swss-common
       run: |
         cd ..
-        git clone https://github.com/sonic-net/sonic-swss-common
+        git clone https://github.com/securely1g/sonic-swss-common
         pushd sonic-swss-common
+        git checkout --detach e4db486d14b726af21ad14a85334a60add07ec22
         ./autogen.sh
         dpkg-buildpackage -rfakeroot -us -uc -b -Pnoyangmod,nopython2 -j$(nproc)
         popd
