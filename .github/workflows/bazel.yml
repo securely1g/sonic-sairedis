@@ -77,6 +77,48 @@ jobs:
           git check-ignore --quiet MODULE.bazel.lock
           git diff --exit-code HEAD --
 
+      - name: Select and record the draft registry snapshot
+        env:
+          REGISTRY_REVISION: 97978239ab9ef4cb2cd81e8f77dd51c7379681b7
+        run: |
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import shlex
+          import shutil
+          main = "https://raw.githubusercontent.com/securely1g/sonic-bazel-registry/main"
+          revision = os.environ["REGISTRY_REVISION"]
+          assert re.fullmatch(r"[0-9a-f]{40}", revision)
+          registry = main.removesuffix("main") + revision
+          configuration = Path(".bazelrc").read_text()
+          assert configuration.count(main) == 1
+          artifacts = Path("artifacts/validation").resolve()
+          (artifacts / "declared.bazelrc").write_text(configuration)
+          effective = artifacts / "effective.bazelrc"
+          effective.write_text(configuration.replace(main, registry))
+          binary = shutil.which("bazel")
+          assert binary, "Bazel must be installed before selecting registry inputs"
+          directory = Path(os.environ["RUNNER_TEMP"]) / "draft-bazel"
+          directory.mkdir(exist_ok=True)
+          wrapper = directory / "bazel"
+          wrapper.write_text('#!/bin/sh\nif [ "${1-}" = --version ]; then\n  exec ' +
+                             shlex.quote(binary) + ' "$@"\nfi\nexec ' + shlex.quote(binary) +
+                             " --noworkspace_rc --bazelrc=" + shlex.quote(str(effective)) +
+                             ' "$@"\n')
+          wrapper.chmod(0o755)
+          with open(os.environ["GITHUB_PATH"], "a") as output:
+              output.write(str(directory) + "\n")
+          (artifacts / "registry-inputs.json").write_text(json.dumps({
+              "declared_registry": main, "registry": registry,
+              "observed_revision": revision, "draft_validation": True,
+          }, indent=2) + "\n")
+          PYTHON
+
+      - name: Test registry provenance verification
+        run: python3 -B -m unittest discover -s bazel/ci -p test_verify_packages.py
+
       - name: Check Bazel formatting
         run: >-
           bazel run ${{ matrix.bazel_args }}
@@ -119,6 +161,7 @@ jobs:
         run: >-
           bazel build ${{ matrix.bazel_args }}
           --jobs=4 --lockfile_mode=update
+          //:runtime_packages.json
           //lib:libsairedis_pkg
           //lib:libsairedis_pkg.debug_symbols
           //lib:libsairedis_dev_pkg
@@ -136,6 +179,9 @@ jobs:
           //pyext:pysairedis_pkg
           //pyext:pysairedis_pkg.debug_symbols
 
+      - name: Retain generated package metadata
+        run: cp bazel-bin/runtime_packages.json artifacts/validation/runtime_packages.json
+
       - name: Verify package and debug artifacts
         run: |
           python3 bazel/ci/verify_packages.py \
@@ -144,6 +190,7 @@ jobs:
             --image '${{ matrix.image }}' \
             --targets bazel/ci/required-targets.json \
             --contract bazel/ci/package-contract.json \
+            --registry-config artifacts/validation/effective.bazelrc \
             --output-dir artifacts
 
       - name: Retain available dependency resolution on failure
