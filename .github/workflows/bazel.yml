@@ -79,7 +79,7 @@ jobs:
 
       - name: Select and record the draft registry snapshot
         env:
-          REGISTRY_REVISION: 8f69132d03564280613e0f0409e751904db1c753
+          REGISTRY_REVISION: dac546e9a18468319aecd8bf767a0e886d152f65
         run: |
           python3 - <<'PYTHON'
           import json
