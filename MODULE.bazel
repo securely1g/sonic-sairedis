@@ -1,7 +1,7 @@
 # Keep bazel_compatibility in sync with sonic-buildimage's .bazelversion.
 module(
     name = "sonic-sairedis",
-    version = "0.0.2",
+    version = "0.0.4",
     bazel_compatibility = [
         ">=8.5.1",
         "<=8.5.1",
@@ -25,7 +25,7 @@ bazel_dep(name = "rules_rs", version = "0.1.0", dev_dependency = True)
 
 bazel_dep(name = "swig", version = "4.3.0.bcr.2")
 bazel_dep(name = "tar.bzl", version = "0.10.5-sonic.1")
-bazel_dep(name = "sonic-build-infra", version = "0.0.22-a12bc826d6f811a157db5c7c02a2fe033896cc14", repo_name = "sonic_build_infra")
+bazel_dep(name = "sonic-build-infra", version = "0.0.25-1341eaf4a7759ef0121ae7c17edcd0000d063038", repo_name = "sonic_build_infra")
 bazel_dep(name = "sonic-swss-common", version = "0.0.5-326ca764197ac788dfd55aa935ff728180745bde", repo_name = "sonic_swss_common")
 bazel_dep(name = "sai", version = "1.18.0-sonic.1", repo_name = "sai_source")
 

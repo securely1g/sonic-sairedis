@@ -165,7 +165,9 @@ jobs:
           //pyext:pysairedis_pkg.debug_symbols
 
       - name: Retain generated package metadata
-        run: cp bazel-bin/runtime_packages.json artifacts/validation/runtime_packages.json
+        run: |
+          cp bazel-bin/runtime_packages.json artifacts/validation/runtime_packages.json
+          cp bazel-bin/library_runtime_packages.json artifacts/validation/library_runtime_packages.json
 
       - name: Verify package and debug artifacts
         run: |
