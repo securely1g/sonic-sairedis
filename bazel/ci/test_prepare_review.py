@@ -43,6 +43,19 @@ class ReviewConfigurationTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "exactly"):
                 review.prepare(root, root, root / "evidence", "a" * 40, "/bin/echo")
 
+    def test_standalone_version_reaches_launcher_without_startup_options(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".bazelrc").write_text("common --registry=" + review.MAIN +
+                                         "\ncommon --registry=" + review.BCR + "\n")
+            launcher = root / "original-bazel"
+            launcher.write_text('#!/bin/sh\n[ "$#" -eq 1 ] && [ "$1" = "--version" ] || exit 2\n'
+                                'printf "bazel 8.5.1\\n"\n')
+            launcher.chmod(0o755)
+            binary = review.prepare(root, root, root / "evidence", "a" * 40, str(launcher))
+            self.assertEqual(subprocess.check_output([str(binary), "--version"], text=True),
+                             "bazel 8.5.1\n")
+
 
 if __name__ == "__main__":
     unittest.main()

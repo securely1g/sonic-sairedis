@@ -51,7 +51,11 @@ def prepare(workspace, home, output, revision, bazel):
     (output / "declared.bazelrc").write_text(declared)
     binary = output / "bin/bazel"
     binary.parent.mkdir(exist_ok=True)
-    binary.write_text("#!/bin/sh\nexec " + shlex.quote(bazel) +
+    # Bazelisk handles standalone --version before Bazel startup options.
+    # It does not load a registry or evaluate workspace configuration.
+    binary.write_text("#!/bin/sh\n" +
+                      'if [ "$#" -eq 1 ] && [ "$1" = "--version" ]; then\n  exec ' +
+                      shlex.quote(bazel) + ' "$@"\nfi\nexec ' + shlex.quote(bazel) +
                       " --nosystem_rc --nohome_rc --noworkspace_rc --bazelrc=" +
                       shlex.quote(str(effective)) + ' "$@"\n')
     binary.chmod(0o755)
